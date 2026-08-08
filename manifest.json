@@ -1,19 +1,19 @@
 {
-  "name": "Control de Paquetes""
-  "short_name": "Paquetes""
-  "start_url": "./index.html""
-  "display": "standalone""
-  "background_color": "#ffafb7""
-  "theme_color": "#ffe600""
+  "name": "Control de Paquetes"
+  "short_name": "Paquetes"
+  "start_url": "./index.html"
+  "display": "standalone"
+  "background_color": "#ffafb7"
+  "theme_color": "#ffe600"
   "icons": [
     {
-      "src": "icono.png""
-      "sizes": "192x192""
+      "src": "icono.png"
+      "sizes": "192x192"
       "type": "image/png"
     },
     {
-      "src": "icono.png""
-      "sizes": "512x512""
+      "src": "icono.png"
+      "sizes": "512x512"
       "type": "image/png"
     }
   ]
