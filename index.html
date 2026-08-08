@@ -11,26 +11,52 @@
 *{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#f4f5f7;color:#222}
 header{background:#ffe600;padding:18px 20px;font-weight:800;font-size:22px;display:flex;justify-content:space-between;align-items:center}
 main{max-width:900px;margin:auto;padding:18px}
-.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:12px}
 .card,.panel{background:white;border-radius:16px;padding:18px;box-shadow:0 2px 10px #00000012}
-.card b{font-size:28px}.muted{color:#777;font-size:13px}
+.card b{font-size:26px}.muted{color:#777;font-size:13px}
 button{border:0;border-radius:12px;padding:12px 15px;font-weight:700;cursor:pointer}
-.primary{background:#3483fa;color:white}.danger{background:#ffdddd}.actions{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0}
-form{display:grid;gap:10px}input,select{padding:13px;border:1px solid #ddd;border-radius:10px;font-size:15px}.notice{padding:10px;border-radius:10px;background:#fff8d6;font-size:13px;line-height:1.4}.photo-preview img{width:110px;height:110px;object-fit:cover;border-radius:12px;margin:6px 6px 0 0}
+.primary{background:#3483fa;color:white}.danger{background:#ffdddd}.success{background:#28a745;color:white}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0}
+form{display:grid;gap:10px}input,select{padding:13px;border:1px solid #ddd;border-radius:10px;font-size:15px}
+.notice{padding:10px;border-radius:10px;background:#fff8d6;font-size:13px;line-height:1.4}
+.photo-preview img{width:110px;height:110px;object-fit:cover;border-radius:12px;margin:6px 6px 0 0}
 .item{display:flex;justify-content:space-between;gap:10px;padding:14px 0;border-bottom:1px solid #eee}
 .badge{padding:6px 9px;border-radius:20px;background:#eee;font-size:12px;font-weight:700}
-.ok{background:#dff7e7}.pending{background:#fff1c7}.incident{background:#ffdede}
+.ok{background:#dff7e7}.pending{background:#fff1c7}.retry{background:#fff3cd}.failed{background:#f8d7da}
 .hidden{display:none}@media(max-width:650px){.cards{grid-template-columns:1fr}.item{display:block}.item button{margin-top:8px}}
+.config-box{background:#e8f4fd;padding:12px;border-radius:12px;margin-bottom:16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.config-box input{width:140px}
 </style>
 </head>
 <body>
-<header>📦 Control de Paquetes <span>v0.4</span></header>
+<header>📦 Control de Paquetes <span>v0.5</span></header>
 <main>
+
+<div class="config-box">
+  <div>
+    <label class="muted" style="display:block">Paquetes que llegaron:</label>
+    <input type="number" id="arrivedCount" min="0" onchange="saveConfig()" placeholder="Ej. 50">
+  </div>
+  <div>
+    <label class="muted" style="display:block">Paquetes a entregar:</label>
+    <input type="number" id="targetCount" min="0" onchange="saveConfig()" placeholder="Ej. 40">
+  </div>
+</div>
+
 <h2>Resumen de hoy</h2>
 <div class="cards">
-<div class="card"><b id="total">0</b><div class="muted">Paquetes registrados</div></div>
+<div class="card"><b id="total">0</b><div class="muted">Registrados</div></div>
 <div class="card"><b id="pending">0</b><div class="muted">Pendientes</div></div>
 <div class="card"><b id="delivered">0</b><div class="muted">Entregados</div></div>
+</div>
+<div class="cards" style="grid-template-columns:repeat(2,1fr)">
+<div class="card"><b id="failedCount">0</b><div class="muted">No se pudo entregar</div></div>
+<div class="card"><b id="retryCount">0</b><div class="muted">Reintentos</div></div>
+</div>
+
+<div id="finishRouteContainer" class="hidden" style="margin-bottom:16px">
+  <button class="success" style="width:100%;font-size:16px" onclick="triggerFinishRoute()">🏁 Finalizar ruta (Se borrará en 15 min)</button>
+  <div id="timerNotice" class="muted" style="text-align:center;margin-top:6px;font-weight:bold;color:#d9534f"></div>
 </div>
 
 <div class="actions">
@@ -54,7 +80,12 @@ form{display:grid;gap:10px}input,select{padding:13px;border:1px solid #ddd;borde
 <input type="file" id="deliveryPhoto" accept="image/*" capture="environment" required>
 <div id="deliveryPreview" class="photo-preview"></div>
 
-<select id="status"><option>Pendiente</option><option>En ruta</option><option>Entregado</option><option>Incidencia</option></select>
+<select id="status">
+  <option>Pendiente</option>
+  <option>Entregado</option>
+  <option>No se pudo entregar</option>
+  <option>Reintento</option>
+</select>
 <button class="primary">Guardar paquete</button>
 </form>
 </div>
@@ -68,7 +99,19 @@ form{display:grid;gap:10px}input,select{padding:13px;border:1px solid #ddd;borde
 
 <script>
 let packages=JSON.parse(localStorage.getItem("packages")||"[]");
+let config=JSON.parse(localStorage.getItem("config")||'{"arrived":"","target":""}');
+let timerEnd=localStorage.getItem("timerEnd")||null;
+
+document.getElementById("arrivedCount").value = config.arrived;
+document.getElementById("targetCount").value = config.target;
+
 function save(){localStorage.setItem("packages",JSON.stringify(packages))}
+function saveConfig(){
+  config.arrived=document.getElementById("arrivedCount").value;
+  config.target=document.getElementById("targetCount").value;
+  localStorage.setItem("config",JSON.stringify(config));
+}
+
 function showForm(){document.getElementById("formPanel").classList.toggle("hidden")}
 function readPhoto(file){return new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=reject;r.readAsDataURL(file)})}
 
@@ -85,23 +128,66 @@ function addPackage(e){
 
 function changeStatus(id,s){let p=packages.find(x=>x.id===id);if(p){p.status=s;save();render()}}
 function removePackage(id){if(confirm("¿Eliminar este paquete?")){packages=packages.filter(x=>x.id!==id);save();render()}}
-function reiniciarTodo(){if(confirm("¿Estás seguro de borrar todos los paquetes y datos registrados?")){localStorage.removeItem("packages");packages=[];render();}}
+function reiniciarTodo(){if(confirm("¿Estás seguro de borrar todos los paquetes y datos registrados?")){localStorage.removeItem("packages");localStorage.removeItem("config");localStorage.removeItem("timerEnd");packages=[];config={arrived:"",target:""};document.getElementById("arrivedCount").value="";document.getElementById("targetCount").value="";render();}}
+
+function triggerFinishRoute(){
+  if(!timerEnd){
+    timerEnd = Date.now() + 15 * 60 * 1000; // 15 minutos
+    localStorage.setItem("timerEnd", timerEnd);
+  }
+  checkTimer();
+}
+
+function checkTimer(){
+  if(!timerEnd) return;
+  let remaining = timerEnd - Date.now();
+  if(remaining <= 0){
+    reiniciarTodo();
+    alert("El tiempo de 15 minutos ha expirado. Los datos han sido borrados.");
+  } else {
+    let mins = Math.floor(remaining / 60000);
+    let secs = Math.floor((remaining % 60000) / 1000);
+    document.getElementById("finishRouteContainer").classList.remove("hidden");
+    document.getElementById("timerNotice").textContent = `Borrado automático en: ${mins}m ${secs < 10 ? '0' : ''}${secs}s`;
+    setTimeout(checkTimer, 1000);
+  }
+}
 
 function render(){
  let q=searchBox.value.toLowerCase();
  let shown=packages.filter(p=>(p.person+" "+p.route+" "+p.recipient).toLowerCase().includes(q));
+ 
+ let deliveredCount = packages.filter(p=>p.status==="Entregado").length;
+ let failedCountVal = packages.filter(p=>p.status==="No se pudo entregar").length;
+ let retryCountVal = packages.filter(p=>p.status==="Reintento").length;
+
  total.textContent=packages.length;
- pending.textContent=packages.filter(p=>p.status!=="Entregado").length;
- delivered.textContent=packages.filter(p=>p.status==="Entregado").length;
+ pending.textContent=packages.filter(p=>p.status==="Pendiente").length;
+ delivered.textContent=deliveredCount;
+ document.getElementById("failedCount").textContent=failedCountVal;
+ document.getElementById("retryCount").textContent=retryCountVal;
+
+ // Validar botón finalizar ruta
+ let targetVal = parseInt(config.target) || 0;
+ let totalGestionados = deliveredCount + failedCountVal; // Cuenta entregados + no se pudo entregar
+ if(targetVal > 0 && totalGestionados >= targetVal){
+   document.getElementById("finishRouteContainer").classList.remove("hidden");
+   if(timerEnd) checkTimer();
+ } else if(!timerEnd) {
+   document.getElementById("finishRouteContainer").classList.add("hidden");
+ }
+
  list.innerHTML=shown.length?shown.map(p=>`
  <div class="item">
   <div><span class="muted">👤 Repartidor: ${p.person}${p.route?" · 🛣️ "+p.route:""}<br>📬 Recibió: ${p.recipient||"No indicado"}</span>
    <div class="photo-preview">${p.packagePhoto?`<div><small>ID / carga</small><br><img src="${p.packagePhoto}"></div>`:""}${p.deliveryPhoto?`<div><small>Entrega</small><br><img src="${p.deliveryPhoto}"></div>`:""}</div></div>
-  <div><span class="badge ${p.status==="Entregado"?"ok":p.status==="Incidencia"?"incident":"pending"}">${p.status}</span><br>
+  <div><span class="badge ${p.status==="Entregado"?"ok":p.status==="No se pudo entregar"?"failed":p.status==="Reintento"?"retry":"pending"}">${p.status}</span><br>
   <button onclick="changeStatus(${p.id},'Entregado')">✓ Entregado</button>
   <button class="danger" onclick="removePackage(${p.id})">Eliminar</button></div>
  </div>`).join(""):"<p class='muted'>No hay paquetes registrados.</p>";
 }
+
+if(timerEnd) checkTimer();
 render();
 
 function previewFile(input,target,label){input.addEventListener("change",()=>{if(input.files[0]){const r=new FileReader();r.onload=()=>target.innerHTML=`<small>${label}</small><br><img src="${r.result}">`;r.readAsDataURL(input.files[0])}else target.innerHTML=""})}
@@ -110,4 +196,3 @@ previewFile(deliveryPhoto,deliveryPreview,"Vista previa de entrega");
 </script>
 </body>
 </html>
-
