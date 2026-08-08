@@ -29,7 +29,7 @@ form{display:grid;gap:10px}input,select{padding:13px;border:1px solid #ddd;borde
 </style>
 </head>
 <body>
-<header>📦 Control de Paquetes <span>v0.5</span></header>
+<header>📦 Control de Paquetes <span>v0.6</span></header>
 <main>
 
 <div class="config-box">
@@ -62,7 +62,6 @@ form{display:grid;gap:10px}input,select{padding:13px;border:1px solid #ddd;borde
 <div class="actions">
 <button class="primary" onclick="showForm()">➕ Registrar paquete</button>
 <button onclick="searchBox.focus()">🔎 Buscar</button>
-<button class="danger" onclick="reiniciarTodo()">🗑️ Borrar todo</button>
 </div>
 
 <div id="formPanel" class="panel hidden">
@@ -128,7 +127,17 @@ function addPackage(e){
 
 function changeStatus(id,s){let p=packages.find(x=>x.id===id);if(p){p.status=s;save();render()}}
 function removePackage(id){if(confirm("¿Eliminar este paquete?")){packages=packages.filter(x=>x.id!==id);save();render()}}
-function reiniciarTodo(){if(confirm("¿Estás seguro de borrar todos los paquetes y datos registrados?")){localStorage.removeItem("packages");localStorage.removeItem("config");localStorage.removeItem("timerEnd");packages=[];config={arrived:"",target:""};document.getElementById("arrivedCount").value="";document.getElementById("targetCount").value="";render();}}
+
+function limpiarDatosAutomatico(){
+  localStorage.removeItem("packages");
+  localStorage.removeItem("config");
+  localStorage.removeItem("timerEnd");
+  packages=[];
+  config={arrived:"",target:""};
+  document.getElementById("arrivedCount").value="";
+  document.getElementById("targetCount").value="";
+  render();
+}
 
 function triggerFinishRoute(){
   if(!timerEnd){
@@ -142,7 +151,7 @@ function checkTimer(){
   if(!timerEnd) return;
   let remaining = timerEnd - Date.now();
   if(remaining <= 0){
-    reiniciarTodo();
+    limpiarDatosAutomatico();
     alert("El tiempo de 15 minutos ha expirado. Los datos han sido borrados.");
   } else {
     let mins = Math.floor(remaining / 60000);
@@ -169,7 +178,7 @@ function render(){
 
  // Validar botón finalizar ruta
  let targetVal = parseInt(config.target) || 0;
- let totalGestionados = deliveredCount + failedCountVal; // Cuenta entregados + no se pudo entregar
+ let totalGestionados = deliveredCount + failedCountVal; 
  if(targetVal > 0 && totalGestionados >= targetVal){
    document.getElementById("finishRouteContainer").classList.remove("hidden");
    if(timerEnd) checkTimer();
