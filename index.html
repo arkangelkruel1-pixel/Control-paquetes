@@ -6,7 +6,12 @@
 <title>Control de Paquetes</title>
 <link rel="icon" href="icon.png">
 <link rel="apple-touch-icon" href="icon.png">
+<link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#ffe600">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Paquetes">
 <!-- Librería externa para generar el código QR automáticamente -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
@@ -125,7 +130,6 @@ let timerEnd=localStorage.getItem("timerEnd")||null;
 document.getElementById("arrivedCount").value = config.arrived;
 document.getElementById("targetCount").value = config.target;
 
-// Generar QR automáticamente al cargar
 let qrContainer = document.getElementById("qrcode");
 new QRCode(qrContainer, {
   text: window.location.href,
