@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Control de Paquetes</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#f4f5f7;color:#222}
+header{background:#ffe600;padding:18px 20px;font-weight:800;font-size:22px;display:flex;justify-content:space-between}
+main{max-width:900px;margin:auto;padding:18px}
+.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.card,.panel{background:white;border-radius:16px;padding:18px;box-shadow:0 2px 10px #00000012}
+.card b{font-size:28px}.muted{color:#777;font-size:13px}
+button{border:0;border-radius:12px;padding:12px 15px;font-weight:700;cursor:pointer}
+.primary{background:#3483fa;color:white}.danger{background:#ffdddd}.actions{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0}
+form{display:grid;gap:10px}input,select{padding:13px;border:1px solid #ddd;border-radius:10px;font-size:15px}.notice{padding:10px;border-radius:10px;background:#fff8d6;font-size:13px;line-height:1.4}.photo-preview img{width:110px;height:110px;object-fit:cover;border-radius:12px;margin:6px 6px 0 0}
+.item{display:flex;justify-content:space-between;gap:10px;padding:14px 0;border-bottom:1px solid #eee}
+.badge{padding:6px 9px;border-radius:20px;background:#eee;font-size:12px;font-weight:700}
+.ok{background:#dff7e7}.pending{background:#fff1c7}.incident{background:#ffdede}
+.hidden{display:none}@media(max-width:650px){.cards{grid-template-columns:1fr}.item{display:block}.item button{margin-top:8px}}
+</style>
+</head>
+<body>
+<header>📦 Control de Paquetes <span>v0.3</span></header>
+<main>
+<h2>Resumen de hoy</h2>
+<div class="cards">
+<div class="card"><b id="total">0</b><div class="muted">Paquetes registrados</div></div>
+<div class="card"><b id="pending">0</b><div class="muted">Pendientes</div></div>
+<div class="card"><b id="delivered">0</b><div class="muted">Entregados</div></div>
+</div>
+
+<div class="actions">
+<button class="primary" onclick="showForm()">➕ Registrar paquete</button>
+<button onclick="searchBox.focus()">🔎 Buscar</button>
+</div>
+
+<div id="formPanel" class="panel hidden">
+<h3>Registrar paquete</h3>
+<form onsubmit="addPackage(event)">
+<input id="code" placeholder="Número / código del paquete" required>
+<input id="person" placeholder="Nombre del repartidor" required>
+<input id="route" placeholder="Ruta o zona">
+<select id="status"><option>Pendiente</option><option>En ruta</option><option>Entregado</option><option>Incidencia</option></select>
+<button class="primary">Guardar paquete</button>
+</form>
+</div>
+
+<div class="panel" style="margin-top:16px">
+<h3>Paquetes</h3>
+<input id="searchBox" oninput="render()" placeholder="Buscar por repartidor, ruta o destinatario..." style="width:100%">
+<div id="list"></div>
+</div>
+</main>
+
+<script>
+let packages=JSON.parse(localStorage.getItem("packages")||"[]");
+function save(){localStorage.setItem("packages",JSON.stringify(packages))}
+function showForm(){document.getElementById("formPanel").classList.toggle("hidden")}
+function readPhoto(file){return new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=reject;r.readAsDataURL(file)})}
+function addPackage(e){
+ e.preventDefault();
+ const pf=packagePhoto.files[0], df=deliveryPhoto.files[0];
+ if(!pf){alert("📦 Toma la foto del paquete y asegúrate de que el ID se vea completo y legible.");return}
+ if(!df){alert("📸 Toma la foto del paquete sostenido por la persona que lo recibió.");return}
+ Promise.all([readPhoto(pf),readPhoto(df)]).then(([pp,dp])=>{
+  packages.unshift({id:Date.now(),person:person.value.trim(),route:route.value.trim(),recipient:recipient.value.trim(),packagePhoto:pp,deliveryPhoto:dp,status:status.value});
+  save(); e.target.reset(); packagePreview.innerHTML=""; deliveryPreview.innerHTML=""; document.getElementById("formPanel").classList.add("hidden"); render();
+ });
+}
+
+function changeStatus(id,s){let p=packages.find(x=>x.id===id);if(p){p.status=s;save();render()}}
+function removePackage(id){if(confirm("¿Eliminar este paquete?")){packages=packages.filter(x=>x.id!==id);save();render()}}
+function render(){
+ let q=searchBox.value.toLowerCase();
+ let shown=packages.filter(p=>(p.person+" "+p.route+" "+p.recipient).toLowerCase().includes(q));
+ total.textContent=packages.length;
+ pending.textContent=packages.filter(p=>p.status!=="Entregado").length;
+ delivered.textContent=packages.filter(p=>p.status==="Entregado").length;
+ list.innerHTML=shown.length?shown.map(p=>`
+ <div class="item">
+  <div><b>📦 Paquete registrado</b><br><span class="muted">👤 ${p.person}${p.route?" · 🛣️ "+p.route:""}<br>📬 Recibió: ${p.recipient||"No indicado"}</span>
+   <div class="photo-preview">${p.packagePhoto?`<div><small>ID / carga</small><br><img src="${p.packagePhoto}"></div>`:""}${p.deliveryPhoto?`<div><small>Entrega</small><br><img src="${p.deliveryPhoto}"></div>`:""}</div></div>
+  <div><span class="badge ${p.status==="Entregado"?"ok":p.status==="Incidencia"?"incident":"pending"}">${p.status}</span><br>
+  <button onclick="changeStatus(${p.id},'Entregado')">✓ Entregado</button>
+  <button class="danger" onclick="removePackage(${p.id})">Eliminar</button></div>
+ </div>`).join(""):"<p class='muted'>No hay paquetes registrados.</p>";
+}
+render();
+</script>
+</body></html>\n<script>
+function previewFile(input,target,label){input.addEventListener("change",()=>{if(input.files[0]){const r=new FileReader();r.onload=()=>target.innerHTML=`<small>${label}</small><br><img src="${r.result}">`;r.readAsDataURL(input.files[0])}else target.innerHTML=""})}
+previewFile(packagePhoto,packagePreview,"Vista previa del ID");
+previewFile(deliveryPhoto,deliveryPreview,"Vista previa de entrega");
+</script>\n
