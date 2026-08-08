@@ -7,6 +7,8 @@
 <link rel="icon" href="icon.png">
 <link rel="apple-touch-icon" href="icon.png">
 <meta name="theme-color" content="#ffe600">
+<!-- Librería externa para generar el código QR automáticamente -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
 *{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#f4f5f7;color:#222}
 header{background:#ffe600;padding:18px 20px;font-weight:800;font-size:22px;display:flex;justify-content:space-between;align-items:center}
@@ -15,7 +17,7 @@ main{max-width:900px;margin:auto;padding:18px}
 .card,.panel{background:white;border-radius:16px;padding:18px;box-shadow:0 2px 10px #00000012}
 .card b{font-size:26px}.muted{color:#777;font-size:13px}
 button{border:0;border-radius:12px;padding:12px 15px;font-weight:700;cursor:pointer}
-.primary{background:#3483fa;color:white}.danger{background:#ffdddd}.success{background:#28a745;color:white}
+.primary{background:#3483fa;color:white}.danger{background:#ffdddd}.success{background:#28a745;color:white}.dark{background:#333;color:white}
 .actions{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0}
 form{display:grid;gap:10px}input,select{padding:13px;border:1px solid #ddd;border-radius:10px;font-size:15px}
 .notice{padding:10px;border-radius:10px;background:#fff8d6;font-size:13px;line-height:1.4}
@@ -26,10 +28,13 @@ form{display:grid;gap:10px}input,select{padding:13px;border:1px solid #ddd;borde
 .hidden{display:none}@media(max-width:650px){.cards{grid-template-columns:1fr}.item{display:block}.item button{margin-top:8px}}
 .config-box{background:#e8f4fd;padding:12px;border-radius:12px;margin-bottom:16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .config-box input{width:140px}
+.worker-row{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #eee;font-size:14px}
+#qrcode{display:flex;justify-content:center;margin:15px 0}
+#qrcode img{margin:auto;border-radius:8px}
 </style>
 </head>
 <body>
-<header>📦 Control de Paquetes <span>v0.6</span></header>
+<header>📦 Control de Paquetes <span>v0.8</span></header>
 <main>
 
 <div class="config-box">
@@ -62,6 +67,22 @@ form{display:grid;gap:10px}input,select{padding:13px;border:1px solid #ddd;borde
 <div class="actions">
 <button class="primary" onclick="showForm()">➕ Registrar paquete</button>
 <button onclick="searchBox.focus()">🔎 Buscar</button>
+<button class="dark" onclick="toggleWorkersPanel()">👥 Progreso Trabajadores</button>
+<button style="background:#6c757d;color:white" onclick="toggleQRPanel()">📱 Código QR de la Web</button>
+</div>
+
+<!-- PANEL DE PROGRESO DE TRABAJADORES -->
+<div id="workersPanel" class="panel hidden" style="margin-bottom:16px">
+  <h3>📊 Progreso y Rendimiento por Trabajador</h3>
+  <div id="workersList"><p class="muted">No hay repartidores registrados aún.</p></div>
+</div>
+
+<!-- PANEL DE CÓDIGO QR -->
+<div id="qrPanel" class="panel hidden" style="margin-bottom:16px;text-align:center">
+  <h3>📱 Código QR para acceder a la Web</h3>
+  <p class="muted">Escanea este código con cualquier celular para abrir la aplicación directamente:</p>
+  <div id="qrcode"></div>
+  <button onclick="toggleQRPanel()" style="background:#ddd;margin-top:10px">Cerrar QR</button>
 </div>
 
 <div id="formPanel" class="panel hidden">
@@ -104,6 +125,17 @@ let timerEnd=localStorage.getItem("timerEnd")||null;
 document.getElementById("arrivedCount").value = config.arrived;
 document.getElementById("targetCount").value = config.target;
 
+// Generar QR automáticamente al cargar
+let qrContainer = document.getElementById("qrcode");
+new QRCode(qrContainer, {
+  text: window.location.href,
+  width: 160,
+  height: 160,
+  colorDark : "#000000",
+  colorLight : "#ffffff",
+  correctLevel : QRCode.CorrectLevel.H
+});
+
 function save(){localStorage.setItem("packages",JSON.stringify(packages))}
 function saveConfig(){
   config.arrived=document.getElementById("arrivedCount").value;
@@ -112,6 +144,9 @@ function saveConfig(){
 }
 
 function showForm(){document.getElementById("formPanel").classList.toggle("hidden")}
+function toggleWorkersPanel(){document.getElementById("workersPanel").classList.toggle("hidden"); renderWorkers();}
+function toggleQRPanel(){document.getElementById("qrPanel").classList.toggle("hidden")}
+
 function readPhoto(file){return new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=reject;r.readAsDataURL(file)})}
 
 function addPackage(e){
@@ -141,7 +176,7 @@ function limpiarDatosAutomatico(){
 
 function triggerFinishRoute(){
   if(!timerEnd){
-    timerEnd = Date.now() + 15 * 60 * 1000; // 15 minutos
+    timerEnd = Date.now() + 15 * 60 * 1000;
     localStorage.setItem("timerEnd", timerEnd);
   }
   checkTimer();
@@ -162,6 +197,37 @@ function checkTimer(){
   }
 }
 
+function renderWorkers(){
+  let workersMap = {};
+  packages.forEach(p => {
+    let name = p.person || "Sin nombre";
+    if(!workersMap[name]) {
+      workersMap[name] = { total: 0, delivered: 0, failed: 0, retry: 0, pending: 0 };
+    }
+    workersMap[name].total++;
+    if(p.status === "Entregado") workersMap[name].delivered++;
+    else if(p.status === "No se pudo entregar") workersMap[name].failed++;
+    else if(p.status === "Reintento") workersMap[name].retry++;
+    else if(p.status === "Pendiente") workersMap[name].pending++;
+  });
+
+  let html = "";
+  for(let w in workersMap) {
+    let data = workersMap[w];
+    html += `
+      <div class="worker-row">
+        <div><b>👤 ${w}</b><br><span class="muted">Total asignados: ${data.total}</span></div>
+        <div style="text-align:right">
+          <span style="color:green;font-weight:bold">✓ ${data.delivered} Entregados</span> | 
+          <span style="color:#d9534f">❌ ${data.failed} Fallidos</span> | 
+          <span style="color:#f0ad4e">🔄 ${data.retry} Reintentos</span>
+        </div>
+      </div>
+    `;
+  }
+  document.getElementById("workersList").innerHTML = html || "<p class='muted'>No hay repartidores registrados aún.</p>";
+}
+
 function render(){
  let q=searchBox.value.toLowerCase();
  let shown=packages.filter(p=>(p.person+" "+p.route+" "+p.recipient).toLowerCase().includes(q));
@@ -176,7 +242,6 @@ function render(){
  document.getElementById("failedCount").textContent=failedCountVal;
  document.getElementById("retryCount").textContent=retryCountVal;
 
- // Validar botón finalizar ruta
  let targetVal = parseInt(config.target) || 0;
  let totalGestionados = deliveredCount + failedCountVal; 
  if(targetVal > 0 && totalGestionados >= targetVal){
@@ -190,10 +255,20 @@ function render(){
  <div class="item">
   <div><span class="muted">👤 Repartidor: ${p.person}${p.route?" · 🛣️ "+p.route:""}<br>📬 Recibió: ${p.recipient||"No indicado"}</span>
    <div class="photo-preview">${p.packagePhoto?`<div><small>ID / carga</small><br><img src="${p.packagePhoto}"></div>`:""}${p.deliveryPhoto?`<div><small>Entrega</small><br><img src="${p.deliveryPhoto}"></div>`:""}</div></div>
-  <div><span class="badge ${p.status==="Entregado"?"ok":p.status==="No se pudo entregar"?"failed":p.status==="Reintento"?"retry":"pending"}">${p.status}</span><br>
-  <button onclick="changeStatus(${p.id},'Entregado')">✓ Entregado</button>
-  <button class="danger" onclick="removePackage(${p.id})">Eliminar</button></div>
+  <div style="text-align:right">
+    <select onchange="changeStatus(${p.id}, this.value)" style="padding:6px;font-size:13px;margin-bottom:6px">
+      <option ${p.status==="Pendiente"?"selected":""}>Pendiente</option>
+      <option ${p.status==="Entregado"?"selected":""}>Entregado</option>
+      <option ${p.status==="No se pudo entregar"?"selected":""}>No se pudo entregar</option>
+      <option ${p.status==="Reintento"?"selected":""}>Reintento</option>
+    </select><br>
+    <button class="danger" onclick="removePackage(${p.id})" style="padding:6px 10px;font-size:12px">Eliminar</button>
+  </div>
  </div>`).join(""):"<p class='muted'>No hay paquetes registrados.</p>";
+
+ if(!document.getElementById("workersPanel").classList.contains("hidden")) {
+   renderWorkers();
+ }
 }
 
 if(timerEnd) checkTimer();
