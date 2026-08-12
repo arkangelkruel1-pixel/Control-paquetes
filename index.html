@@ -4,235 +4,123 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Control de Paquetes</title>
-    <!-- Librería de QuaggaJS para leer códigos de barras -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #f4f4f9;
-            margin: 0;
-            padding: 15px;
-            color: #333;
-        }
-        .container {
-            max-width: 450px;
-            margin: 0 auto;
-            background: #fff;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-        }
-        h2 {
-            text-align: center;
-            color: #2c3e50;
-            margin-top: 0;
-        }
-        .stats-box {
-            display: flex;
-            justify-content: space-between;
-            background: #eef2f3;
-            padding: 10px;
-            border-radius: 5px;
-            margin-bottom: 15px;
-            font-size: 14px;
-            font-weight: bold;
-        }
-        .form-group {
-            margin-bottom: 15px;
-        }
-        label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: bold;
-        }
-        input[type="text"] {
-            width: 100%;
-            padding: 10px;
-            box-sizing: border-box;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            margin-bottom: 10px;
-        }
-        button {
-            width: 100%;
-            padding: 10px;
-            border: none;
-            border-radius: 4px;
-            font-size: 15px;
-            cursor: pointer;
-            margin-bottom: 10px;
-        }
-        .btn-primary { background-color: #27ae60; color: white; }
-        .btn-primary:hover { background-color: #219653; }
+        body { font-family: Arial, sans-serif; background-color: #f4f4f9; padding: 15px; color: #333; }
+        .container { max-width: 450px; margin: 0 auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        h2 { text-align: center; color: #2c3e50; }
         
-        .btn-scanner { background-color: #2980b9; color: white; }
-        .btn-scanner:hover { background-color: #1f618d; }
-
-        .btn-secondary { background-color: #8e44ad; color: white; }
-        .btn-secondary:hover { background-color: #732d91; }
-
-        .btn-danger { background-color: #c0392b; color: white; display: none; } /* Oculto por defecto */
-        .btn-danger:hover { background-color: #a93226; }
-
-        .status-options {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            gap: 5px;
-            margin-bottom: 15px;
-        }
-        .status-options button {
-            font-size: 12px;
-            padding: 8px 4px;
-            margin: 0;
-        }
-        .btn-entregado { background-color: #27ae60; color: white; }
-        .btn-reintentar { background-color: #f39c12; color: white; }
-        .btn-no-entregado { background-color: #e74c3c; color: white; }
-
-        #interactive {
-            margin-bottom: 15px;
-            border: 2px dashed #2980b9;
-            border-radius: 4px;
-            overflow: hidden;
-            display: none;
-        }
-        #interactive video, #interactive canvas {
-            width: 100% !important;
-            height: auto !important;
-        }
+        /* Estilos de la nueva sección de meta */
+        .config-box { background: #dcdde1; padding: 10px; border-radius: 5px; margin-bottom: 15px; }
+        
+        .stats-box { display: flex; justify-content: space-between; background: #eef2f3; padding: 10px; border-radius: 5px; margin-bottom: 15px; font-weight: bold; }
+        input[type="number"], input[type="text"] { width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        button { width: 100%; padding: 10px; border: none; border-radius: 4px; cursor: pointer; margin-bottom: 10px; color: white; font-size: 14px; }
+        
+        .btn-set { background-color: #34495e; }
+        .btn-primary { background-color: #27ae60; }
+        .btn-scanner { background-color: #2980b9; }
+        .btn-secondary { background-color: #8e44ad; }
+        .btn-danger { background-color: #c0392b; display: none; } /* Oculto hasta completar meta */
+        
+        .status-options { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px; margin-bottom: 10px; }
+        .btn-status { font-size: 12px; padding: 8px 4px; }
+        #interactive { margin-bottom: 15px; border: 2px dashed #2980b9; display: none; }
+        #interactive video { width: 100% !important; }
     </style>
 </head>
 <body>
 
-    <div class="container">
-        <h2>Control de Paquetes</h2>
-        
-        <!-- Contadores y Progreso -->
-        <div class="stats-box">
-            <div>Llegados: <span id="contador-llegados">0</span></div>
-            <div>A Entregar: <span id="contador-entregar">0</span></div>
-        </div>
-
-        <!-- Botones de Gestión General -->
-        <button type="button" class="btn-secondary" id="btn-progreso">📊 Progreso de Trabajadores</button>
-
-        <form id="form-paquete">
-            <div class="form-group">
-                <label for="numero-paquete">Número de Paquete / Guía:</label>
-                
-                <!-- Botón para activar la cámara -->
-                <button type="button" id="btn-escanear" class="btn-scanner">📷 Escanear Código</button>
-                
-                <!-- Visor de la cámara -->
-                <div id="interactive"></div>
-
-                <input type="text" id="numero-paquete" placeholder="Escanea o escribe el paquete" required>
-            </div>
-
-            <!-- Opciones de Estado del Paquete -->
-            <label>Estado del paquete:</label>
-            <div class="status-options">
-                <button type="button" class="btn-entregado" onclick="seleccionarEstado('Entregado')">Entregado</button>
-                <button type="button" class="btn-reintentar" onclick="seleccionarEstado('Reintentar')">Reintentar</button>
-                <button type="button" class="btn-no-entregado" onclick="seleccionarEstado('No entregado')">No se pudo</button>
-            </div>
-            <input type="hidden" id="estado-seleccionado" value="Entregado">
-
-            <button type="submit" class="btn-primary">Guardar Paquete</button>
-        </form>
-
-        <!-- Botón de Finalizar Ruta -->
-        <button type="button" class="btn-danger" id="btn-finalizar" style="margin-top: 15px;">🏁 Finalizar Ruta</button>
+<div class="container">
+    <h2>Control de Paquetes</h2>
+    
+    <!-- NUEVA SECCIÓN: Definir meta -->
+    <div class="config-box">
+        <label>Total de paquetes recibidos:</label>
+        <input type="number" id="input-total" placeholder="Ej. 10">
+        <button type="button" class="btn-set" onclick="establecerTotal()">Establecer Meta</button>
     </div>
 
-    <script>
-        let paquetesLlegados = 0;
-        let paquetesAEntregar = 0;
-        let paquetesProcesados = 0; 
+    <div class="stats-box">
+        <div>Meta: <span id="meta-total">0</span></div>
+        <div>Procesados: <span id="contador-procesados">0</span></div>
+    </div>
 
-        const btnEscanear = document.getElementById('btn-escanear');
-        const visorCamara = document.getElementById('interactive');
-        const inputPaquete = document.getElementById('numero-paquete');
-        const btnFinalizar = document.getElementById('btn-finalizar');
+    <button type="button" class="btn-secondary" id="btn-progreso">📊 Progreso de Trabajadores</button>
+
+    <form id="form-paquete">
+        <button type="button" id="btn-escanear" class="btn-scanner">📷 Escanear Código</button>
+        <div id="interactive"></div>
+        <input type="text" id="numero-paquete" placeholder="Código de paquete" required>
         
-        function seleccionarEstado(estado) {
-            document.getElementById('estado-seleccionado').value = estado;
-            alert("Estado seleccionado: " + estado);
+        <label>Estado del paquete:</label>
+        <div class="status-options">
+            <button type="button" class="btn-status" style="background:#27ae60" onclick="setEstado('Entregado')">Entregado</button>
+            <button type="button" class="btn-status" style="background:#f39c12" onclick="setEstado('Reintentar')">Reintentar</button>
+            <button type="button" class="btn-status" style="background:#e74c3c" onclick="setEstado('No entregado')">No se pudo</button>
+        </div>
+        <input type="hidden" id="estado-seleccionado" value="Entregado">
+        <button type="submit" class="btn-primary">Guardar Registro</button>
+    </form>
+
+    <!-- Botón que solo aparece cuando procesados >= meta -->
+    <button type="button" class="btn-danger" id="btn-finalizar">🏁 Finalizar Ruta</button>
+</div>
+
+<script>
+    let metaTotal = 0;
+    let procesados = 0;
+
+    function establecerTotal() {
+        metaTotal = parseInt(document.getElementById('input-total').value);
+        if(isNaN(metaTotal)) return alert("Pon un número válido");
+        document.getElementById('meta-total').innerText = metaTotal;
+        alert("Meta establecida en: " + metaTotal + " paquetes.");
+    }
+
+    function setEstado(e) { 
+        document.getElementById('estado-seleccionado').value = e; 
+        alert("Estado: " + e); 
+    }
+
+    // Escáner
+    document.getElementById('btn-escanear').addEventListener('click', function() {
+        document.getElementById('interactive').style.display = 'block';
+        Quagga.init({ inputStream: { type: "LiveStream", target: document.querySelector('#interactive'), constraints: { facingMode: "environment" } }, decoder: { readers: ["code_128_reader", "ean_reader"] } }, function(err) {
+            if (!err) Quagga.start();
+        });
+        Quagga.onDetected(function(result) {
+            document.getElementById('numero-paquete').value = result.codeResult.code;
+            Quagga.stop();
+            document.getElementById('interactive').style.display = 'none';
+        });
+    });
+
+    // Guardar registro
+    document.getElementById('form-paquete').addEventListener('submit', function(e) {
+        e.preventDefault();
+        procesados++;
+        document.getElementById('contador-procesados').innerText = procesados;
+        
+        // Lógica: Solo mostrar botón si ya alcanzamos la meta
+        if (metaTotal > 0 && procesados >= metaTotal) {
+            document.getElementById('btn-finalizar').style.display = 'block';
         }
+        
+        alert("Paquete guardado. Van " + procesados + " de " + metaTotal);
+        this.reset();
+    });
 
-        // Lógica del Escáner
-        btnEscanear.addEventListener('click', function() {
-            visorCamara.style.display = 'block';
+    // Finalizar
+    document.getElementById('btn-finalizar').addEventListener('click', function() {
+        if(confirm("¿Finalizar ruta? Se reiniciará todo.")) {
+            location.reload();
+        }
+    });
 
-            Quagga.init({
-                inputStream: {
-                    name: "Live",
-                    type: "LiveStream",
-                    target: visorCamara,
-                    constraints: { facingMode: "environment" },
-                },
-                decoder: { readers: ["code_128_reader", "ean_reader", "upc_reader"] }
-            }, function(err) {
-                if (err) {
-                    alert("No se pudo iniciar la cámara.");
-                    visorCamara.style.display = 'none';
-                    return;
-                }
-                Quagga.start();
-            });
-
-            Quagga.onDetected(function(result) {
-                var codigoDetectado = result.codeResult.code;
-                inputPaquete.value = codigoDetectado;
-                Quagga.stop();
-                visorCamara.style.display = 'none';
-            });
-        });
-
-        // Al guardar el paquete
-        document.getElementById('form-paquete').addEventListener('submit', function(e) {
-            e.preventDefault();
-            const valor = inputPaquete.value;
-            const estado = document.getElementById('estado-seleccionado').value;
-
-            if(!valor) return;
-
-            paquetesLlegados++;
-            paquetesAEntregar++;
-            paquetesProcesados++;
-
-            document.getElementById('contador-llegados').innerText = paquetesLlegados;
-            document.getElementById('contador-entregar').innerText = paquetesAEntregar;
-
-            alert(`¡Paquete ${valor} guardado como "${estado}"!`);
-
-            // Botón de finalizar solo aparece si ya se procesaron los paquetes
-            if (paquetesAEntregar > 0 && paquetesProcesados === paquetesAEntregar) {
-                btnFinalizar.style.display = 'block';
-            } else {
-                btnFinalizar.style.display = 'none';
-            }
-
-            inputPaquete.value = '';
-            this.reset();
-        });
-
-        // Botón de Finalizar Ruta
-        btnFinalizar.addEventListener('click', function() {
-            if(confirm("¿Estás seguro de finalizar la ruta? Se reiniciarán los contadores.")) {
-                paquetesLlegados = 0;
-                paquetesAEntregar = 0;
-                paquetesProcesados = 0;
-                document.getElementById('contador-llegados').innerText = 0;
-                document.getElementById('contador-entregar').innerText = 0;
-                btnFinalizar.style.display = 'none';
-                alert("¡Ruta finalizada con éxito!");
-            }
-        });
-
-        document.getElementById('btn-progreso').addEventListener('click', function() {
-            alert("Abriendo panel de progreso de trabajadores...");
-        });
-    </script>
+    document.getElementById('btn-progreso').addEventListener('click', function() {
+        alert("Abriendo panel de progreso...");
+    });
+</script>
 </body>
 </html>
