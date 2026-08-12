@@ -9,20 +9,15 @@
         body { font-family: Arial, sans-serif; background-color: #f4f4f9; padding: 15px; color: #333; }
         .container { max-width: 450px; margin: 0 auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
         h2 { text-align: center; color: #2c3e50; }
-        
-        /* Estilos de la nueva sección de meta */
         .config-box { background: #dcdde1; padding: 10px; border-radius: 5px; margin-bottom: 15px; }
-        
-        .stats-box { display: flex; justify-content: space-between; background: #eef2f3; padding: 10px; border-radius: 5px; margin-bottom: 15px; font-weight: bold; }
+        .stats-box { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px; background: #eef2f3; padding: 10px; border-radius: 5px; margin-bottom: 15px; font-weight: bold; font-size: 12px; text-align: center; }
         input[type="number"], input[type="text"] { width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
         button { width: 100%; padding: 10px; border: none; border-radius: 4px; cursor: pointer; margin-bottom: 10px; color: white; font-size: 14px; }
-        
         .btn-set { background-color: #34495e; }
         .btn-primary { background-color: #27ae60; }
         .btn-scanner { background-color: #2980b9; }
         .btn-secondary { background-color: #8e44ad; }
-        .btn-danger { background-color: #c0392b; display: none; } /* Oculto hasta completar meta */
-        
+        .btn-danger { background-color: #c0392b; display: none; }
         .status-options { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px; margin-bottom: 10px; }
         .btn-status { font-size: 12px; padding: 8px 4px; }
         #interactive { margin-bottom: 15px; border: 2px dashed #2980b9; display: none; }
@@ -34,7 +29,6 @@
 <div class="container">
     <h2>Control de Paquetes</h2>
     
-    <!-- NUEVA SECCIÓN: Definir meta -->
     <div class="config-box">
         <label>Total de paquetes recibidos:</label>
         <input type="number" id="input-total" placeholder="Ej. 10">
@@ -42,8 +36,9 @@
     </div>
 
     <div class="stats-box">
-        <div>Meta: <span id="meta-total">0</span></div>
-        <div>Procesados: <span id="contador-procesados">0</span></div>
+        <div>Meta:<br><span id="meta-total">0</span></div>
+        <div>A Entregar:<br><span id="contador-faltantes">0</span></div>
+        <div>Hechos:<br><span id="contador-procesados">0</span></div>
     </div>
 
     <button type="button" class="btn-secondary" id="btn-progreso">📊 Progreso de Trabajadores</button>
@@ -63,7 +58,6 @@
         <button type="submit" class="btn-primary">Guardar Registro</button>
     </form>
 
-    <!-- Botón que solo aparece cuando procesados >= meta -->
     <button type="button" class="btn-danger" id="btn-finalizar">🏁 Finalizar Ruta</button>
 </div>
 
@@ -75,15 +69,12 @@
         metaTotal = parseInt(document.getElementById('input-total').value);
         if(isNaN(metaTotal)) return alert("Pon un número válido");
         document.getElementById('meta-total').innerText = metaTotal;
+        document.getElementById('contador-faltantes').innerText = metaTotal; // Inicialmente faltan todos
         alert("Meta establecida en: " + metaTotal + " paquetes.");
     }
 
-    function setEstado(e) { 
-        document.getElementById('estado-seleccionado').value = e; 
-        alert("Estado: " + e); 
-    }
+    function setEstado(e) { document.getElementById('estado-seleccionado').value = e; }
 
-    // Escáner
     document.getElementById('btn-escanear').addEventListener('click', function() {
         document.getElementById('interactive').style.display = 'block';
         Quagga.init({ inputStream: { type: "LiveStream", target: document.querySelector('#interactive'), constraints: { facingMode: "environment" } }, decoder: { readers: ["code_128_reader", "ean_reader"] } }, function(err) {
@@ -96,30 +87,26 @@
         });
     });
 
-    // Guardar registro
     document.getElementById('form-paquete').addEventListener('submit', function(e) {
         e.preventDefault();
-        procesados++;
-        document.getElementById('contador-procesados').innerText = procesados;
+        if(procesados >= metaTotal) return alert("Ya completaste la meta.");
         
-        // Lógica: Solo mostrar botón si ya alcanzamos la meta
-        if (metaTotal > 0 && procesados >= metaTotal) {
+        procesados++;
+        let faltantes = metaTotal - procesados;
+        
+        document.getElementById('contador-procesados').innerText = procesados;
+        document.getElementById('contador-faltantes').innerText = faltantes;
+        
+        if (procesados >= metaTotal) {
             document.getElementById('btn-finalizar').style.display = 'block';
         }
         
-        alert("Paquete guardado. Van " + procesados + " de " + metaTotal);
+        alert("Paquete guardado. Faltan: " + faltantes);
         this.reset();
     });
 
-    // Finalizar
     document.getElementById('btn-finalizar').addEventListener('click', function() {
-        if(confirm("¿Finalizar ruta? Se reiniciará todo.")) {
-            location.reload();
-        }
-    });
-
-    document.getElementById('btn-progreso').addEventListener('click', function() {
-        alert("Abriendo panel de progreso...");
+        if(confirm("¿Finalizar ruta?")) { location.reload(); }
     });
 </script>
 </body>
