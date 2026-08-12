@@ -71,7 +71,7 @@
         .btn-secondary { background-color: #8e44ad; color: white; }
         .btn-secondary:hover { background-color: #732d91; }
 
-        .btn-danger { background-color: #c0392b; color: white; }
+        .btn-danger { background-color: #c0392b; color: white; display: none; } /* Oculto por defecto */
         .btn-danger:hover { background-color: #a93226; }
 
         .status-options {
@@ -148,11 +148,12 @@
     <script>
         let paquetesLlegados = 0;
         let paquetesAEntregar = 0;
-        let estadoActual = "Entregado";
+        let paquetesProcesados = 0; 
 
         const btnEscanear = document.getElementById('btn-escanear');
         const visorCamara = document.getElementById('interactive');
         const inputPaquete = document.getElementById('numero-paquete');
+        const btnFinalizar = document.getElementById('btn-finalizar');
         
         function seleccionarEstado(estado) {
             document.getElementById('estado-seleccionado').value = estado;
@@ -196,26 +197,35 @@
 
             if(!valor) return;
 
-            // Sumar a los contadores automáticamente al registrar
             paquetesLlegados++;
             paquetesAEntregar++;
+            paquetesProcesados++;
+
             document.getElementById('contador-llegados').innerText = paquetesLlegados;
             document.getElementById('contador-entregar').innerText = paquetesAEntregar;
 
             alert(`¡Paquete ${valor} guardado como "${estado}"!`);
 
-            // LIMPIA EL CAMPO PARA EL SIGUIENTE PAQUETE
+            // Botón de finalizar solo aparece si ya se procesaron los paquetes
+            if (paquetesAEntregar > 0 && paquetesProcesados === paquetesAEntregar) {
+                btnFinalizar.style.display = 'block';
+            } else {
+                btnFinalizar.style.display = 'none';
+            }
+
             inputPaquete.value = '';
             this.reset();
         });
 
         // Botón de Finalizar Ruta
-        document.getElementById('btn-finalizar').addEventListener('click', function() {
+        btnFinalizar.addEventListener('click', function() {
             if(confirm("¿Estás seguro de finalizar la ruta? Se reiniciarán los contadores.")) {
                 paquetesLlegados = 0;
                 paquetesAEntregar = 0;
+                paquetesProcesados = 0;
                 document.getElementById('contador-llegados').innerText = 0;
                 document.getElementById('contador-entregar').innerText = 0;
+                btnFinalizar.style.display = 'none';
                 alert("¡Ruta finalizada con éxito!");
             }
         });
@@ -224,6 +234,5 @@
             alert("Abriendo panel de progreso de trabajadores...");
         });
     </script>
-
 </body>
 </html>
