@@ -1,286 +1,157 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Control de Paquetes</title>
-<link rel="icon" href="icon.png">
-<link rel="apple-touch-icon" href="icon.png">
-<link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#ffe600">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Paquetes">
-<!-- Librería externa para generar el código QR automáticamente -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<style>
-*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#f4f5f7;color:#222}
-header{background:#ffe600;padding:18px 20px;font-weight:800;font-size:22px;display:flex;justify-content:space-between;align-items:center}
-main{max-width:900px;margin:auto;padding:18px}
-.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:12px}
-.card,.panel{background:white;border-radius:16px;padding:18px;box-shadow:0 2px 10px #00000012}
-.card b{font-size:26px}.muted{color:#777;font-size:13px}
-button{border:0;border-radius:12px;padding:12px 15px;font-weight:700;cursor:pointer}
-.primary{background:#3483fa;color:white}.danger{background:#ffdddd}.success{background:#28a745;color:white}.dark{background:#333;color:white}
-.actions{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0}
-form{display:grid;gap:10px}input,select{padding:13px;border:1px solid #ddd;border-radius:10px;font-size:15px}
-.notice{padding:10px;border-radius:10px;background:#fff8d6;font-size:13px;line-height:1.4}
-.photo-preview img{width:110px;height:110px;object-fit:cover;border-radius:12px;margin:6px 6px 0 0}
-.item{display:flex;justify-content:space-between;gap:10px;padding:14px 0;border-bottom:1px solid #eee}
-.badge{padding:6px 9px;border-radius:20px;background:#eee;font-size:12px;font-weight:700}
-.ok{background:#dff7e7}.pending{background:#fff1c7}.retry{background:#fff3cd}.failed{background:#f8d7da}
-.hidden{display:none}@media(max-width:650px){.cards{grid-template-columns:1fr}.item{display:block}.item button{margin-top:8px}}
-.config-box{background:#e8f4fd;padding:12px;border-radius:12px;margin-bottom:16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-.config-box input{width:140px}
-.worker-row{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #eee;font-size:14px}
-#qrcode{display:flex;justify-content:center;margin:15px 0}
-#qrcode img{margin:auto;border-radius:8px}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Control de Paquetes con Escáner</title>
+    <!-- Librería de QuaggaJS para leer códigos de barras -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+        .container {
+            max-width: 400px;
+            margin: 0 auto;
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        h2 {
+            text-align: center;
+            color: #2c3e50;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            box-sizing: border-box;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        button {
+            width: 100%;
+            padding: 10px;
+            background-color: #27ae60;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 5px;
+        }
+        button:hover {
+            background-color: #219653;
+        }
+        #btn-escanear {
+            background-color: #2980b9;
+            margin-bottom: 10px;
+        }
+        #btn-escanear:hover {
+            background-color: #1f618d;
+        }
+        #interactive {
+            margin-bottom: 15px;
+            border: 2px dashed #2980b9;
+            border-radius: 4px;
+            overflow: hidden;
+            position: relative;
+        }
+        /* Ajuste para que el video de la cámara se adapte bien al contenedor */
+        #interactive video, #interactive canvas {
+            width: 100% !important;
+            height: auto !important;
+        }
+    </style>
 </head>
 <body>
-<header>📦 Control de Paquetes <span>v0.8</span></header>
-<main>
 
-<div class="config-box">
-  <div>
-    <label class="muted" style="display:block">Paquetes que llegaron:</label>
-    <input type="number" id="arrivedCount" min="0" onchange="saveConfig()" placeholder="Ej. 50">
-  </div>
-  <div>
-    <label class="muted" style="display:block">Paquetes a entregar:</label>
-    <input type="number" id="targetCount" min="0" onchange="saveConfig()" placeholder="Ej. 40">
-  </div>
-</div>
+    <div class="container">
+        <h2>Registrar Paquete</h2>
+        
+        <form id="form-paquete">
+            <div class="form-group">
+                <label for="numero-paquete">Número de Paquete / Guía:</label>
+                <!-- Botón para activar la cámara -->
+                <button type="button" id="btn-escanear">📷 Escanear con la cámara</button>
+                
+                <!-- Visor de la cámara (Oculto al inicio) -->
+                <div id="interactive" style="display: none;"></div>
 
-<h2>Resumen de hoy</h2>
-<div class="cards">
-<div class="card"><b id="total">0</b><div class="muted">Registrados</div></div>
-<div class="card"><b id="pending">0</b><div class="muted">Pendientes</div></div>
-<div class="card"><b id="delivered">0</b><div class="muted">Entregados</div></div>
-</div>
-<div class="cards" style="grid-template-columns:repeat(2,1fr)">
-<div class="card"><b id="failedCount">0</b><div class="muted">No se pudo entregar</div></div>
-<div class="card"><b id="retryCount">0</b><div class="muted">Reintentos</div></div>
-</div>
+                <input type="text" id="numero-paquete" placeholder="Ej. 123456789" required>
+            </div>
 
-<div id="finishRouteContainer" class="hidden" style="margin-bottom:16px">
-  <button class="success" style="width:100%;font-size:16px" onclick="triggerFinishRoute()">🏁 Finalizar ruta (Se borrará en 15 min)</button>
-  <div id="timerNotice" class="muted" style="text-align:center;margin-top:6px;font-weight:bold;color:#d9534f"></div>
-</div>
+            <button type="submit" id="btn-guardar">Guardar Paquete</button>
+        </form>
+    </div>
 
-<div class="actions">
-<button class="primary" onclick="showForm()">➕ Registrar paquete</button>
-<button onclick="searchBox.focus()">🔎 Buscar</button>
-<button class="dark" onclick="toggleWorkersPanel()">👥 Progreso Trabajadores</button>
-<button style="background:#6c757d;color:white" onclick="toggleQRPanel()">📱 Código QR de la Web</button>
-</div>
+    <script>
+        const btnEscanear = document.getElementById('btn-escanear');
+        const visorCamara = document.getElementById('interactive');
+        const inputPaquete = document.getElementById('numero-paquete');
 
-<!-- PANEL DE PROGRESO DE TRABAJADORES -->
-<div id="workersPanel" class="panel hidden" style="margin-bottom:16px">
-  <h3>📊 Progreso y Rendimiento por Trabajador</h3>
-  <div id="workersList"><p class="muted">No hay repartidores registrados aún.</p></div>
-</div>
+        btnEscanear.addEventListener('click', function() {
+            // Mostramos el espacio de la cámara
+            visorCamara.style.display = 'block';
 
-<!-- PANEL DE CÓDIGO QR -->
-<div id="qrPanel" class="panel hidden" style="margin-bottom:16px;text-align:center">
-  <h3>📱 Código QR para acceder a la Web</h3>
-  <p class="muted">Escanea este código con cualquier celular para abrir la aplicación directamente:</p>
-  <div id="qrcode"></div>
-  <button onclick="toggleQRPanel()" style="background:#ddd;margin-top:10px">Cerrar QR</button>
-</div>
+            Quagga.init({
+                inputStream: {
+                    name: "Live",
+                    type: "LiveStream",
+                    target: visorCamara,
+                    constraints: {
+                        facingMode: "environment" // Usa la cámara trasera del celular
+                    },
+                },
+                decoder: {
+                    readers: ["code_128_reader", "ean_reader", "upc_reader"] // Formatos comunes de códigos de barras
+                }
+            }, function(err) {
+                if (err) {
+                    console.error("Error al iniciar la cámara:", err);
+                    alert("No se pudo iniciar la cámara. Revisa los permisos.");
+                    visorCamara.style.display = 'none';
+                    return;
+                }
+                Quagga.start();
+            });
 
-<div id="formPanel" class="panel hidden">
-<h3>Registrar paquete</h3>
-<form onsubmit="addPackage(event)">
-<input id="person" placeholder="Nombre del repartidor" required>
-<input id="route" placeholder="Ruta o zona">
-<input id="recipient" placeholder="Destinatario o quien recibe">
+            // Acción cuando detecta un código correctamente
+            Quagga.onDetected(function(result) {
+                var codigoDetectado = result.codeResult.code;
+                
+                // Rellena el input automáticamente
+                inputPaquete.value = codigoDetectado;
 
-<label class="notice">📦 Foto del paquete (Asegúrate de que el ID se vea legible):</label>
-<input type="file" id="packagePhoto" accept="image/*" capture="environment" required>
-<div id="packagePreview" class="photo-preview"></div>
+                // Detiene la cámara y oculta el visor
+                Quagga.stop();
+                visorCamara.style.display = 'none';
+                
+                alert("¡Código escaneado con éxito: " + codigoDetectado + "!");
+            });
+        });
 
-<label class="notice">📸 Foto de la persona que recibe el paquete:</label>
-<input type="file" id="deliveryPhoto" accept="image/*" capture="environment" required>
-<div id="deliveryPreview" class="photo-preview"></div>
+        // Acción al enviar el formulario
+        document.getElementById('form-paquete').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const valor = inputPaquete.value;
+            alert("Paquete guardado correctamente: " + valor);
+            // Aquí puedes agregar tu lógica para guardarlo en la lista o almacenamiento
+            this.reset();
+        });
+    </script>
 
-<select id="status">
-  <option>Pendiente</option>
-  <option>Entregado</option>
-  <option>No se pudo entregar</option>
-  <option>Reintento</option>
-</select>
-<button class="primary">Guardar paquete</button>
-</form>
-</div>
-
-<div class="panel" style="margin-top:16px">
-<h3>Paquetes</h3>
-<input id="searchBox" oninput="render()" placeholder="Buscar por repartidor, ruta o destinatario..." style="width:100%">
-<div id="list"></div>
-</div>
-</main>
-
-<script>
-let packages=JSON.parse(localStorage.getItem("packages")||"[]");
-let config=JSON.parse(localStorage.getItem("config")||'{"arrived":"","target":""}');
-let timerEnd=localStorage.getItem("timerEnd")||null;
-
-document.getElementById("arrivedCount").value = config.arrived;
-document.getElementById("targetCount").value = config.target;
-
-let qrContainer = document.getElementById("qrcode");
-new QRCode(qrContainer, {
-  text: window.location.href,
-  width: 160,
-  height: 160,
-  colorDark : "#000000",
-  colorLight : "#ffffff",
-  correctLevel : QRCode.CorrectLevel.H
-});
-
-function save(){localStorage.setItem("packages",JSON.stringify(packages))}
-function saveConfig(){
-  config.arrived=document.getElementById("arrivedCount").value;
-  config.target=document.getElementById("targetCount").value;
-  localStorage.setItem("config",JSON.stringify(config));
-}
-
-function showForm(){document.getElementById("formPanel").classList.toggle("hidden")}
-function toggleWorkersPanel(){document.getElementById("workersPanel").classList.toggle("hidden"); renderWorkers();}
-function toggleQRPanel(){document.getElementById("qrPanel").classList.toggle("hidden")}
-
-function readPhoto(file){return new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=reject;r.readAsDataURL(file)})}
-
-function addPackage(e){
- e.preventDefault();
- const pf=packagePhoto.files[0], df=deliveryPhoto.files[0];
- if(!pf){alert("📦 Toma la foto del paquete y asegúrate de que el ID se vea completo y legible.");return}
- if(!df){alert("📸 Toma la foto del paquete sostenido por la persona que lo recibió.");return}
- Promise.all([readPhoto(pf),readPhoto(df)]).then(([pp,dp])=>{
-  packages.unshift({id:Date.now(),person:person.value.trim(),route:route.value.trim(),recipient:recipient.value.trim(),packagePhoto:pp,deliveryPhoto:dp,status:status.value});
-  save(); e.target.reset(); packagePreview.innerHTML=""; deliveryPreview.innerHTML=""; document.getElementById("formPanel").classList.add("hidden"); render();
- });
-}
-
-function changeStatus(id,s){let p=packages.find(x=>x.id===id);if(p){p.status=s;save();render()}}
-function removePackage(id){if(confirm("¿Eliminar este paquete?")){packages=packages.filter(x=>x.id!==id);save();render()}}
-
-function limpiarDatosAutomatico(){
-  localStorage.removeItem("packages");
-  localStorage.removeItem("config");
-  localStorage.removeItem("timerEnd");
-  packages=[];
-  config={arrived:"",target:""};
-  document.getElementById("arrivedCount").value="";
-  document.getElementById("targetCount").value="";
-  render();
-}
-
-function triggerFinishRoute(){
-  if(!timerEnd){
-    timerEnd = Date.now() + 15 * 60 * 1000;
-    localStorage.setItem("timerEnd", timerEnd);
-  }
-  checkTimer();
-}
-
-function checkTimer(){
-  if(!timerEnd) return;
-  let remaining = timerEnd - Date.now();
-  if(remaining <= 0){
-    limpiarDatosAutomatico();
-    alert("El tiempo de 15 minutos ha expirado. Los datos han sido borrados.");
-  } else {
-    let mins = Math.floor(remaining / 60000);
-    let secs = Math.floor((remaining % 60000) / 1000);
-    document.getElementById("finishRouteContainer").classList.remove("hidden");
-    document.getElementById("timerNotice").textContent = `Borrado automático en: ${mins}m ${secs < 10 ? '0' : ''}${secs}s`;
-    setTimeout(checkTimer, 1000);
-  }
-}
-
-function renderWorkers(){
-  let workersMap = {};
-  packages.forEach(p => {
-    let name = p.person || "Sin nombre";
-    if(!workersMap[name]) {
-      workersMap[name] = { total: 0, delivered: 0, failed: 0, retry: 0, pending: 0 };
-    }
-    workersMap[name].total++;
-    if(p.status === "Entregado") workersMap[name].delivered++;
-    else if(p.status === "No se pudo entregar") workersMap[name].failed++;
-    else if(p.status === "Reintento") workersMap[name].retry++;
-    else if(p.status === "Pendiente") workersMap[name].pending++;
-  });
-
-  let html = "";
-  for(let w in workersMap) {
-    let data = workersMap[w];
-    html += `
-      <div class="worker-row">
-        <div><b>👤 ${w}</b><br><span class="muted">Total asignados: ${data.total}</span></div>
-        <div style="text-align:right">
-          <span style="color:green;font-weight:bold">✓ ${data.delivered} Entregados</span> | 
-          <span style="color:#d9534f">❌ ${data.failed} Fallidos</span> | 
-          <span style="color:#f0ad4e">🔄 ${data.retry} Reintentos</span>
-        </div>
-      </div>
-    `;
-  }
-  document.getElementById("workersList").innerHTML = html || "<p class='muted'>No hay repartidores registrados aún.</p>";
-}
-
-function render(){
- let q=searchBox.value.toLowerCase();
- let shown=packages.filter(p=>(p.person+" "+p.route+" "+p.recipient).toLowerCase().includes(q));
- 
- let deliveredCount = packages.filter(p=>p.status==="Entregado").length;
- let failedCountVal = packages.filter(p=>p.status==="No se pudo entregar").length;
- let retryCountVal = packages.filter(p=>p.status==="Reintento").length;
-
- total.textContent=packages.length;
- pending.textContent=packages.filter(p=>p.status==="Pendiente").length;
- delivered.textContent=deliveredCount;
- document.getElementById("failedCount").textContent=failedCountVal;
- document.getElementById("retryCount").textContent=retryCountVal;
-
- let targetVal = parseInt(config.target) || 0;
- let totalGestionados = deliveredCount + failedCountVal; 
- if(targetVal > 0 && totalGestionados >= targetVal){
-   document.getElementById("finishRouteContainer").classList.remove("hidden");
-   if(timerEnd) checkTimer();
- } else if(!timerEnd) {
-   document.getElementById("finishRouteContainer").classList.add("hidden");
- }
-
- list.innerHTML=shown.length?shown.map(p=>`
- <div class="item">
-  <div><span class="muted">👤 Repartidor: ${p.person}${p.route?" · 🛣️ "+p.route:""}<br>📬 Recibió: ${p.recipient||"No indicado"}</span>
-   <div class="photo-preview">${p.packagePhoto?`<div><small>ID / carga</small><br><img src="${p.packagePhoto}"></div>`:""}${p.deliveryPhoto?`<div><small>Entrega</small><br><img src="${p.deliveryPhoto}"></div>`:""}</div></div>
-  <div style="text-align:right">
-    <select onchange="changeStatus(${p.id}, this.value)" style="padding:6px;font-size:13px;margin-bottom:6px">
-      <option ${p.status==="Pendiente"?"selected":""}>Pendiente</option>
-      <option ${p.status==="Entregado"?"selected":""}>Entregado</option>
-      <option ${p.status==="No se pudo entregar"?"selected":""}>No se pudo entregar</option>
-      <option ${p.status==="Reintento"?"selected":""}>Reintento</option>
-    </select><br>
-    <button class="danger" onclick="removePackage(${p.id})" style="padding:6px 10px;font-size:12px">Eliminar</button>
-  </div>
- </div>`).join(""):"<p class='muted'>No hay paquetes registrados.</p>";
-
- if(!document.getElementById("workersPanel").classList.contains("hidden")) {
-   renderWorkers();
- }
-}
-
-if(timerEnd) checkTimer();
-render();
-
-function previewFile(input,target,label){input.addEventListener("change",()=>{if(input.files[0]){const r=new FileReader();r.onload=()=>target.innerHTML=`<small>${label}</small><br><img src="${r.result}">`;r.readAsDataURL(input.files[0])}else target.innerHTML=""})}
-previewFile(packagePhoto,packagePreview,"Vista previa del ID");
-previewFile(deliveryPhoto,deliveryPreview,"Vista previa de entrega");
-</script>
 </body>
 </html>
