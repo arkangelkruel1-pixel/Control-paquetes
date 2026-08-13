@@ -56,8 +56,8 @@
         </div>
 
         <div class="card">
-            <h3>Escanear Código de Guía</h3>
-            <input type="text" id="trackingId" placeholder="Número de Guía o Código de Barras">
+            <h3>Ingresar Número de Paquete o Escanear</h3>
+            <input type="text" id="trackingId" placeholder="Ej. 103 o código de barras">
             
             <div id="interactive"></div>
             <button class="btn-camera" id="btnStartCam" onclick="startScanner()">📷 Activar Cámara</button>
@@ -171,7 +171,7 @@
 
         window.addToList = function() {
             const id = document.getElementById('trackingId').value.trim();
-            if(!id) { alert("Ingresa un código."); return; }
+            if(!id) { alert("Ingresa un código o número de paquete."); return; }
             if(localBatch.includes(id)) { alert("Este código ya está en la lista."); return; }
             localBatch.push(id);
             document.getElementById('trackingId').value = '';
