@@ -8,20 +8,37 @@
     <style>
         body { font-family: Arial, sans-serif; background-color: #f4f4f9; padding: 15px; color: #333; }
         .container { max-width: 450px; margin: 0 auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
-        h2 { text-align: center; color: #2c3e50; }
-        .config-box { background: #dcdde1; padding: 10px; border-radius: 5px; margin-bottom: 15px; }
-        .stats-box { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; background: #eef2f3; padding: 10px; border-radius: 5px; margin-bottom: 15px; font-weight: bold; font-size: 14px; text-align: center; }
-        input[type="number"], input[type="text"] { width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
-        button { width: 100%; padding: 10px; border: none; border-radius: 4px; cursor: pointer; margin-bottom: 10px; color: white; font-size: 14px; }
-        .btn-set { background-color: #34495e; }
-        .btn-primary { background-color: #27ae60; }
+        h2 { text-align: center; color: #2c3e50; font-size: 22px; margin-top: 0; }
+        
+        .config-box { background: #dcdde1; padding: 15px; border-radius: 5px; margin-bottom: 15px; }
+        .config-box label { font-size: 14px; font-weight: bold; }
+        
+        .stats-header { display: flex; justify-content: space-between; background: #34495e; color: white; padding: 10px; border-radius: 5px; margin-bottom: 10px; font-weight: bold; font-size: 14px; text-align: center; }
+        .stats-counters { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px; background: #eef2f3; padding: 10px; border-radius: 5px; margin-bottom: 15px; font-weight: bold; font-size: 13px; text-align: center; border: 1px solid #bdc3c7; }
+        .faltantes-box { text-align: center; font-size: 15px; font-weight: bold; color: #c0392b; margin-bottom: 15px; }
+        
+        input[type="number"], input[type="text"] { width: 100%; padding: 10px; margin-top: 5px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        button { width: 100%; padding: 10px; border: none; border-radius: 4px; cursor: pointer; margin-bottom: 10px; color: white; font-size: 14px; font-weight: bold; }
+        
+        .btn-set { background-color: #2c3e50; }
+        .btn-primary { background-color: #27ae60; padding: 12px; font-size: 16px; }
         .btn-scanner { background-color: #2980b9; }
         .btn-secondary { background-color: #8e44ad; }
-        .btn-danger { background-color: #c0392b; display: none; }
-        .status-options { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px; margin-bottom: 10px; }
-        .btn-status { font-size: 12px; padding: 8px 4px; }
-        #interactive { margin-bottom: 15px; border: 2px dashed #2980b9; display: none; }
+        .btn-danger { background-color: #c0392b; display: none; padding: 15px; font-size: 16px; }
+        
+        .status-options { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px; margin-bottom: 15px; }
+        .btn-status { font-size: 13px; padding: 10px 4px; opacity: 0.6; }
+        .btn-status.active { opacity: 1; border: 2px solid #2c3e50; transform: scale(1.05); }
+        
+        #interactive { margin-bottom: 15px; border: 2px dashed #2980b9; display: none; border-radius: 8px; overflow: hidden; }
         #interactive video { width: 100% !important; }
+        
+        .color-entregado { color: #27ae60; }
+        .color-reintentar { color: #f39c12; }
+        .color-nopudo { color: #e74c3c; }
+        .bg-entregado { background-color: #27ae60; }
+        .bg-reintentar { background-color: #f39c12; }
+        .bg-nopudo { background-color: #e74c3c; }
     </style>
 </head>
 <body>
@@ -29,87 +46,149 @@
 <div class="container">
     <h2>Control de Paquetes</h2>
     
-    <!-- Configuración de Asignación por Trabajador -->
+    <!-- Configuración Inicial -->
     <div class="config-box">
-        <label>¿Cuántos paquetes te asignaron hoy?</label>
-        <input type="number" id="input-asignados" placeholder="Ej. 15">
-        <button type="button" class="btn-set" onclick="establecerAsignados()">Fijar Mis Paquetes</button>
+        <label>Total llegados a bodega (General):</label>
+        <input type="number" id="input-llegados" placeholder="Ej. 100">
+        
+        <label>Paquetes de mi ruta (A entregar):</label>
+        <input type="number" id="input-asignados" placeholder="Ej. 25">
+        
+        <button type="button" class="btn-set" onclick="establecerCantidades()">Fijar Cantidades</button>
     </div>
 
-    <div class="stats-box">
-        <div>A Entregar:<br><span id="contador-asignados">0</span></div>
-        <div>Hechos:<br><span id="contador-procesados">0</span></div>
+    <!-- Panel de Contadores -->
+    <div class="stats-header">
+        <div>Bodega: <span id="display-llegados">0</span></div>
+        <div>Mi Ruta: <span id="display-asignados">0</span></div>
+    </div>
+    
+    <div class="stats-counters">
+        <div class="color-entregado">✅ Entregados<br><span id="cont-entregados">0</span></div>
+        <div class="color-reintentar">⚠️ Reintentos<br><span id="cont-reintentos">0</span></div>
+        <div class="color-nopudo">❌ No se pudo<br><span id="cont-nopudo">0</span></div>
+    </div>
+    
+    <div class="faltantes-box">
+        Paquetes faltantes por procesar: <span id="cont-faltantes">0</span>
     </div>
 
-    <button type="button" class="btn-secondary" id="btn-progreso">📊 Progreso de Trabajadores</button>
+    <button type="button" class="btn-secondary" id="btn-progreso">📊 Ver Progreso Global</button>
 
+    <!-- Formulario de Registro -->
     <form id="form-paquete">
         <button type="button" id="btn-escanear" class="btn-scanner">📷 Escanear Código</button>
         <div id="interactive"></div>
+        
         <input type="text" id="numero-paquete" placeholder="Código de paquete" required>
         
-        <label>Estado del paquete:</label>
+        <label style="font-weight: bold; display: block; margin-bottom: 5px;">Estado del paquete:</label>
         <div class="status-options">
-            <button type="button" class="btn-status" style="background:#27ae60" onclick="setEstado('Entregado')">Entregado</button>
-            <button type="button" class="btn-status" style="background:#f39c12" onclick="setEstado('Reintentar')">Reintentar</button>
-            <button type="button" class="btn-status" style="background:#e74c3c" onclick="setEstado('No entregado')">No se pudo</button>
+            <button type="button" class="btn-status bg-entregado active" id="btn-estado-entregado" onclick="setEstado('Entregado', this)">Entregado</button>
+            <button type="button" class="btn-status bg-reintentar" id="btn-estado-reintentar" onclick="setEstado('Reintentar', this)">Reintentar</button>
+            <button type="button" class="btn-status bg-nopudo" id="btn-estado-nopudo" onclick="setEstado('No entregado', this)">No se pudo</button>
         </div>
         <input type="hidden" id="estado-seleccionado" value="Entregado">
+        
         <button type="submit" class="btn-primary">Guardar Registro</button>
     </form>
 
-    <button type="button" class="btn-danger" id="btn-finalizar">🏁 Finalizar Ruta</button>
+    <button type="button" class="btn-danger" id="btn-finalizar">🏁 Finalizar Mi Ruta</button>
 </div>
 
 <script>
-    let paquetesAsignados = 0;
-    let procesados = 0;
+    let llegadosGeneral = 0;
+    let misAsignados = 0;
+    
+    let cEntregados = 0;
+    let cReintentos = 0;
+    let cNoPudo = 0;
 
-    function establecerAsignados() {
-        paquetesAsignados = parseInt(document.getElementById('input-asignados').value);
-        if(isNaN(paquetesAsignados) || paquetesAsignados <= 0) return alert("Por favor pon un número válido de paquetes.");
+    function establecerCantidades() {
+        llegadosGeneral = parseInt(document.getElementById('input-llegados').value) || 0;
+        misAsignados = parseInt(document.getElementById('input-asignados').value) || 0;
         
-        document.getElementById('contador-asignados').innerText = paquetesAsignados;
-        alert("Se han fijado " + paquetesAsignados + " paquetes para tu ruta.");
+        if(misAsignados <= 0) {
+            return alert("Debes ingresar al menos los paquetes de tu ruta para comenzar.");
+        }
+        
+        document.getElementById('display-llegados').innerText = llegadosGeneral;
+        document.getElementById('display-asignados').innerText = misAsignados;
+        document.getElementById('cont-faltantes').innerText = misAsignados;
+        
+        alert("Cantidades registradas. ¡Buena ruta!");
     }
 
-    function setEstado(e) { document.getElementById('estado-seleccionado').value = e; }
+    function setEstado(estado, botonClicado) {
+        document.getElementById('estado-seleccionado').value = estado;
+        document.querySelectorAll('.btn-status').forEach(btn => btn.classList.remove('active'));
+        botonClicado.classList.add('active');
+    }
 
     document.getElementById('btn-escanear').addEventListener('click', function() {
-        document.getElementById('interactive').style.display = 'block';
-        Quagga.init({ inputStream: { type: "LiveStream", target: document.querySelector('#interactive'], constraints: { facingMode: "environment" } }, decoder: { readers: ["code_128_reader", "ean_reader"] } }, function(err) {
-            if (!err) Quagga.start();
+        const visor = document.getElementById('interactive');
+        visor.style.display = 'block';
+        
+        Quagga.init({ 
+            inputStream: { 
+                type: "LiveStream", 
+                target: visor, 
+                constraints: { facingMode: "environment" } 
+            }, 
+            decoder: { readers: ["code_128_reader", "ean_reader", "upc_reader"] } 
+        }, function(err) {
+            if (err) {
+                alert("Error con la cámara. Verifica los permisos.");
+                visor.style.display = 'none';
+                return;
+            }
+            Quagga.start();
         });
+        
         Quagga.onDetected(function(result) {
             document.getElementById('numero-paquete').value = result.codeResult.code;
             Quagga.stop();
-            document.getElementById('interactive').style.display = 'none';
+            visor.style.display = 'none';
         });
     });
 
     document.getElementById('form-paquete').addEventListener('submit', function(e) {
         e.preventDefault();
-        if(paquetesAsignados === 0) return alert("Primero debes establecer cuántos paquetes te asignaron arriba.");
-        if(procesados >= paquetesAsignados) return alert("Ya completaste todos tus paquetes asignados.");
         
-        procesados++;
-        document.getElementById('contador-procesados').innerText = procesados;
+        if(misAsignados === 0) return alert("Primero debes establecer los paquetes de tu ruta arriba.");
         
-        // Mostrar botón de finalizar cuando termine sus paquetes
-        if (procesados >= paquetesAsignados) {
+        let totalProcesados = cEntregados + cReintentos + cNoPudo;
+        if(totalProcesados >= misAsignados) return alert("Ya terminaste con todos los paquetes de tu ruta.");
+        
+        let estadoActual = document.getElementById('estado-seleccionado').value;
+        if(estadoActual === 'Entregado') cEntregados++;
+        if(estadoActual === 'Reintentar') cReintentos++;
+        if(estadoActual === 'No entregado') cNoPudo++;
+        
+        totalProcesados = cEntregados + cReintentos + cNoPudo;
+        let faltantes = misAsignados - totalProcesados;
+        
+        document.getElementById('cont-entregados').innerText = cEntregados;
+        document.getElementById('cont-reintentos').innerText = cReintentos;
+        document.getElementById('cont-nopudo').innerText = cNoPudo;
+        document.getElementById('cont-faltantes').innerText = faltantes;
+        
+        if (totalProcesados >= misAsignados) {
             document.getElementById('btn-finalizar').style.display = 'block';
         }
         
-        alert("Paquete guardado con éxito. Te faltan " + (paquetesAsignados - procesados));
         this.reset();
+        setEstado('Entregado', document.getElementById('btn-estado-entregado'));
     });
 
     document.getElementById('btn-finalizar').addEventListener('click', function() {
-        if(confirm("¿Estás seguro de finalizar tu ruta?")) { location.reload(); }
+        if(confirm("¿Estás seguro de finalizar tu ruta? Buen trabajo.")) { 
+            location.reload(); 
+        }
     });
 
     document.getElementById('btn-progreso').addEventListener('click', function() {
-        alert("Abriendo panel de progreso...");
+        alert("Abriendo panel de progreso global...");
     });
 </script>
 </body>
