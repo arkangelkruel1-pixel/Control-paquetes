@@ -55,18 +55,21 @@
             <input type="text" id="assignedWorker" placeholder="Nombre del Repartidor">
         </div>
 
-        <!-- OPCIÓN 1: INGRESO MANUAL -->
-        <div class="card" style="border-left: 5px solid #e67e22;">
-            <h3>⌨️ Ingreso Manual de Paquete</h3>
+        <!-- AMBAS OPCIONES EN UN MISMO CUADRITO -->
+        <div class="card" style="border-left: 5px solid #3498db;">
+            <h3>📦 Registro de Paquetes</h3>
+            
+            <!-- 1. Ingreso Manual -->
+            <label style="font-size: 13px; font-weight: bold; color: #555;">Ingreso Manual:</label>
             <input type="text" id="manualPackageId" placeholder="Ej. 103">
             <button class="btn-add" onclick="addManualToList()">➕ Agregar Manual a la Lista</button>
-        </div>
 
-        <!-- OPCIÓN 2: ESCANEO CON CÁMARA -->
-        <div class="card" style="border-left: 5px solid #8e44ad;">
-            <h3>📷 Escanear con Cámara</h3>
+            <hr style="border: 0; border-top: 1px solid #eee; margin: 15px 0;">
+
+            <!-- 2. Escaneo con Cámara -->
+            <label style="font-size: 13px; font-weight: bold; color: #555;">O Escanear con Cámara:</label>
             <div id="interactive"></div>
-            <button class="btn-camera" id="btnStartCam" onclick="startScanner()">Activar Cámara</button>
+            <button class="btn-camera" id="btnStartCam" onclick="startScanner()">📷 Activar Cámara</button>
             <button class="btn-stop" id="btnStopCam" onclick="stopScanner()">❌ Detener Cámara</button>
         </div>
 
@@ -172,7 +175,7 @@
             renderBatch();
         }
 
-        // NUEVA FUNCIÓN PARA AGREGAR MANUALMENTE DESDE SU PROPIO CAMPO
+        // AGREGAR MANUALMENTE
         window.addManualToList = function() {
             const id = document.getElementById('manualPackageId').value.trim();
             if(!id) { alert("Por favor, ingresa el número de paquete (ej. 103)."); return; }
