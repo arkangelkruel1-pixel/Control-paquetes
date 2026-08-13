@@ -55,15 +55,19 @@
             <input type="text" id="assignedWorker" placeholder="Nombre del Repartidor">
         </div>
 
-        <div class="card">
-            <h3>Ingresar Número de Paquete o Escanear</h3>
-            <input type="text" id="trackingId" placeholder="Ej. 103 o código de barras">
-            
+        <!-- OPCIÓN 1: INGRESO MANUAL -->
+        <div class="card" style="border-left: 5px solid #e67e22;">
+            <h3>⌨️ Ingreso Manual de Paquete</h3>
+            <input type="text" id="manualPackageId" placeholder="Ej. 103">
+            <button class="btn-add" onclick="addManualToList()">➕ Agregar Manual a la Lista</button>
+        </div>
+
+        <!-- OPCIÓN 2: ESCANEO CON CÁMARA -->
+        <div class="card" style="border-left: 5px solid #8e44ad;">
+            <h3>📷 Escanear con Cámara</h3>
             <div id="interactive"></div>
-            <button class="btn-camera" id="btnStartCam" onclick="startScanner()">📷 Activar Cámara</button>
+            <button class="btn-camera" id="btnStartCam" onclick="startScanner()">Activar Cámara</button>
             <button class="btn-stop" id="btnStopCam" onclick="stopScanner()">❌ Detener Cámara</button>
-            
-            <button class="btn-add" onclick="addToList()">➕ Agregar a la Lista</button>
         </div>
 
         <div class="card">
@@ -117,7 +121,7 @@
             stopScanner();
             localBatch = [];
             renderBatch();
-            document.getElementById('trackingId').value = '';
+            document.getElementById('manualPackageId').value = '';
             document.getElementById('assignedWorker').value = '';
             document.getElementById('accessPassword').value = '';
             document.getElementById('workerApp').classList.add('hidden');
@@ -148,7 +152,6 @@
 
             Quagga.onDetected((result) => {
                 const code = result.codeResult.code;
-                document.getElementById('trackingId').value = code;
                 if (navigator.vibrate) navigator.vibrate(100);
                 addToListFromCamera(code);
                 stopScanner();
@@ -169,12 +172,13 @@
             renderBatch();
         }
 
-        window.addToList = function() {
-            const id = document.getElementById('trackingId').value.trim();
-            if(!id) { alert("Ingresa un código o número de paquete."); return; }
-            if(localBatch.includes(id)) { alert("Este código ya está en la lista."); return; }
+        // NUEVA FUNCIÓN PARA AGREGAR MANUALMENTE DESDE SU PROPIO CAMPO
+        window.addManualToList = function() {
+            const id = document.getElementById('manualPackageId').value.trim();
+            if(!id) { alert("Por favor, ingresa el número de paquete (ej. 103)."); return; }
+            if(localBatch.includes(id)) { alert("Este número ya está en la lista."); return; }
             localBatch.push(id);
-            document.getElementById('trackingId').value = '';
+            document.getElementById('manualPackageId').value = '';
             renderBatch();
         };
 
@@ -188,7 +192,7 @@
             let html = "";
             localBatch.forEach((code, index) => {
                 html += `<div class="batch-item">
-                    <span><strong>Guía:</strong> ${code}</span>
+                    <span><strong>Guía/Número:</strong> ${code}</span>
                     <button class="btn-delete" onclick="removeFromBatch(${index})">Quitar</button>
                 </div>`;
             });
@@ -211,7 +215,7 @@
                 alert("¡Lote de " + localBatch.length + " paquetes guardado con éxito!");
                 localBatch = [];
                 renderBatch();
-                document.getElementById('trackingId').value = '';
+                document.getElementById('manualPackageId').value = '';
             } catch (e) {
                 alert("Error al guardar: " + e.message);
             }
@@ -251,7 +255,7 @@
                 html += `<div class="card worker-section">
                     <h3>👤 ${worker} <span style="font-size:13px; color:#666; font-weight:normal;">(${workerData[worker].length} paquetes totales)</span></h3>
                     <table>
-                        <tr><th>Nº de Guía</th><th>Hora de Registro</th></tr>
+                        <tr><th>Nº de Guía / Paquete</th><th>Hora de Registro</th></tr>
                         ${workerData[worker].map(item => `
                             <tr>
                                 <td><strong>${item.trackingId}</strong></td>
