@@ -3,7 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Control de Bodega - Sistema Completo</title>
+    <title>Control de Bodega - Escáner de Cámara</title>
+    <!-- Librería QuaggaJS para leer códigos de barras con la cámara -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
     <style>
         body { font-family: Arial, sans-serif; margin: 0; padding: 15px; background: #f4f4f9; color: #333; }
         h1 { text-align: center; font-size: 20px; color: #2c3e50; }
@@ -13,6 +15,7 @@
         .btn-add { background: #e67e22; color: white; border: none; font-weight: bold; }
         .btn-save { background: #2980b9; color: white; border: none; font-weight: bold; }
         .btn-camera { background: #8e44ad; color: white; border: none; font-weight: bold; }
+        .btn-stop { background: #c0392b; color: white; border: none; font-weight: bold; display: none; }
         .btn-delete { background: #e74c3c; color: white; border: none; padding: 5px 10px; width: auto; font-size: 12px; border-radius: 3px; }
         .btn-logout { background: #7f8c8d; color: white; border: none; font-weight: bold; }
         button:active { opacity: 0.8; }
@@ -21,6 +24,8 @@
         .counter-box { background: #2c3e50; color: white; text-align: center; padding: 15px; border-radius: 8px; margin-bottom: 10px; }
         .counter-number { font-size: 32px; font-weight: bold; margin-top: 5px; color: #2ecc71; }
         .hidden { display: none; }
+        #interactive.viewport { position: relative; width: 100%; height: 220px; border: 2px solid #8e44ad; border-radius: 8px; overflow: hidden; margin-bottom: 10px; display: none; background: #000; }
+        #interactive.viewport canvas, #interactive.viewport video { width: 100%; height: 100%; object-fit: cover; }
     </style>
 </head>
 <body>
@@ -33,9 +38,9 @@
         <button class="btn-login" onclick="checkPassword()">Ingresar</button>
     </div>
 
-    <!-- PANTALLA PRINCIPAL (Oculta hasta iniciar sesión) -->
+    <!-- PANTALLA PRINCIPAL -->
     <div id="mainApp" class="hidden">
-        <h1>📦 Registro de Paquetes (Lotes)</h1>
+        <h1>📦 Registro de Paquetes (Cámara y Lotes)</h1>
 
         <div class="counter-box">
             <div>Paquetes Registrados Hoy</div>
@@ -44,14 +49,18 @@
 
         <div class="card">
             <h3>Datos del Repartidor</h3>
-            <input type="text" id="clientName" placeholder="Cliente General / Destino">
             <input type="text" id="assignedWorker" placeholder="Nombre del Repartidor">
         </div>
 
         <div class="card">
-            <h3>Escanear / Agregar Paquetes</h3>
-            <input type="text" id="trackingId" placeholder="Número de Guía o Código de Barras">
-            <button class="btn-camera" onclick="alert('Usa el teclado de tu pistola lectora o escribe el código directamente arriba.')">📷 Escanear con Cámara / Lector</button>
+            <h3>Escanear Código de Barras</h3>
+            <input type="text" id="trackingId" placeholder="Número de Guía (o usa la cámara)">
+            
+            <!-- Visor de la cámara -->
+            <div id="interactive" class="viewport"></div>
+            
+            <button class="btn-camera" id="btnStartCam" onclick="startScanner()">📷 Activar Cámara para Escanear</button>
+            <button class="btn-stop" id="btnStopCam" onclick="stopScanner()">❌ Detener Cámara</button>
             <button class="btn-add" onclick="addToList()">➕ Agregar a la Lista</button>
         </div>
 
@@ -72,7 +81,7 @@
     <!-- Firebase y Lógica -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const firebaseConfig = {
           apiKey: "AIzaSyACQrmgeHFIargzZLAVbg5YdSCNu7Txmzs",
@@ -87,7 +96,6 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        // Clave de acceso (Puedes cambiar "1234" por la contraseña que prefieras)
         const CLAVE_SECRETA = "1234"; 
 
         window.checkPassword = function() {
@@ -101,6 +109,7 @@
         };
 
         window.logout = function() {
+            stopScanner();
             document.getElementById('mainApp').classList.add('hidden');
             document.getElementById('loginScreen').classList.remove('hidden');
             document.getElementById('accessPassword').value = '';
@@ -108,10 +117,68 @@
 
         let localBatch = [];
 
+        // Funciones de la Cámara con QuaggaJS
+        window.startScanner = function() {
+            document.getElementById('interactive').style.display = 'block';
+            document.getElementById('btnStartCam').style.display = 'none';
+            document.getElementById('btnStopCam').style.display = 'block';
+
+            Quagga.init({
+                inputStream: {
+                    name: "Live",
+                    type: "LiveStream",
+                    target: document.querySelector('#interactive'),
+                    constraints: {
+                        facingMode: "environment" // Usa la cámara trasera
+                    }
+                },
+                decoder: {
+                    readers: ["code_128_reader", "ean_reader", "ean_8_reader", "code_39_reader", "upc_reader"]
+                }
+            }, function(err) {
+                if (err) {
+                    console.error(err);
+                    alert("No se pudo iniciar la cámara. Revisa los permisos.");
+                    stopScanner();
+                    return;
+                }
+                Quagga.start();
+            });
+
+            Quagga.onDetected(function(result) {
+                const code = result.codeResult.code;
+                document.getElementById('trackingId').value = code;
+                
+                if (navigator.vibrate) navigator.vibrate(100);
+
+                addToListFromCamera(code);
+                stopScanner();
+            });
+        };
+
+        window.stopScanner = function() {
+            try {
+                Quagga.stop();
+            } catch(e) {}
+            document.getElementById('interactive').style.display = 'none';
+            document.getElementById('btnStartCam').style.display = 'block';
+            document.getElementById('btnStopCam').style.display = 'none';
+        };
+
+        function addToListFromCamera(code) {
+            if(!code) return;
+            if(localBatch.includes(code)) {
+                alert("Este código ya está en la lista actual.");
+                return;
+            }
+            localBatch.push(code);
+            renderBatch();
+        }
+
         window.addToList = function() {
             const trackingId = document.getElementById('trackingId').value.trim();
             if(!trackingId) {
-                alert("Por favor ingresa o escanea un código de paquete.");
+                alert("Por favor ingresa o escanea un código.");
                 return;
             }
 
@@ -122,7 +189,6 @@
 
             localBatch.push(trackingId);
             document.getElementById('trackingId').value = '';
-            document.getElementById('trackingId').focus();
             renderBatch();
         };
 
@@ -144,16 +210,15 @@
         }
 
         window.saveBatchToCloud = async function() {
-            const clientName = document.getElementById('clientName').value.trim();
             const assignedWorker = document.getElementById('assignedWorker').value.trim();
 
-            if(!assignedWorker || !clientName) {
-                alert("Por favor completa el Nombre del Repartidor y el Cliente.");
+            if(!assignedWorker) {
+                alert("Por favor completa el Nombre del Repartidor.");
                 return;
             }
 
             if(localBatch.length === 0) {
-                alert("La lista de lotes está vacía. Agrega al menos un paquete.");
+                alert("La lista está vacía. Escanea al menos un paquete.");
                 return;
             }
 
@@ -161,7 +226,6 @@
                 for(let code of localBatch) {
                     await addDoc(collection(db, "packages"), {
                         trackingId: code,
-                        clientName,
                         assignedWorker,
                         status: "Pendiente",
                         timestamp: new Date()
@@ -176,7 +240,6 @@
             }
         };
 
-        // Escuchar cambios en tiempo real y calcular el contador diario
         const q = query(collection(db, "packages"));
         onSnapshot(q, (snapshot) => {
             let html = "";
@@ -185,8 +248,6 @@
 
             snapshot.forEach((doc) => {
                 const p = doc.data();
-                
-                // Contar si fue registrado hoy
                 if (p.timestamp) {
                     const fechaDoc = p.timestamp.toDate ? p.timestamp.toDate() : new Date(p.timestamp);
                     if (fechaDoc.toDateString() === hoyStr) {
@@ -196,7 +257,7 @@
 
                 html += `<div class="package-item">
                     <strong>Guía:</strong> ${p.trackingId}<br>
-                    <strong>Cliente:</strong> ${p.clientName} | <strong>Repartidor:</strong> ${p.assignedWorker}
+                    <strong>Repartidor:</strong> ${p.assignedWorker}
                 </div>`;
             });
 
