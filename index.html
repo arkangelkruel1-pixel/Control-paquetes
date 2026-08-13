@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Control de Bodega - Sistema Completo</title>
-    <!-- Librería QuaggaJS para lectura de códigos con cámara -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
+    <!-- Librería universal para códigos de barras, circulares, QR y DataMatrix -->
+    <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
         body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 15px; background: #f0f2f5; color: #333; }
         h1 { text-align: center; font-size: 20px; color: #2c3e50; }
@@ -27,8 +27,7 @@
         td { padding: 8px; border-bottom: 1px solid #ddd; font-size: 13px; }
         .worker-section { margin-bottom: 20px; border-left: 5px solid #3498db; padding-left: 10px; }
         .hidden { display: none; }
-        #interactive { width: 100%; height: 200px; background: #000; border-radius: 8px; margin-top: 10px; display: none; position: relative; overflow: hidden; }
-        #interactive video, #interactive canvas { width: 100%; height: 100%; object-fit: cover; }
+        #interactive { width: 100%; min-height: 250px; background: #000; border-radius: 8px; margin-top: 10px; display: none; position: relative; overflow: hidden; }
     </style>
 </head>
 <body>
@@ -61,7 +60,7 @@
             
             <!-- 1. Ingreso Manual -->
             <label style="font-size: 13px; font-weight: bold; color: #555;">Ingreso Manual:</label>
-            <input type="text" id="manualPackageId" placeholder="Ej. 103">
+            <input type="text" id="manualPackageId" placeholder="Ej. 103" onkeypress="handleManualKeypress(event)">
             <button class="btn-add" onclick="addManualToList()">➕ Agregar Manual a la Lista</button>
 
             <hr style="border: 0; border-top: 1px solid #eee; margin: 15px 0;">
@@ -82,9 +81,16 @@
         <button class="btn-logout" onclick="logout()">🔒 Cerrar Sesión</button>
     </div>
 
-    <!-- PANEL ADMIN MEJORADO (3312) -->
+    <!-- PANEL ADMIN CON BÚSQUEDA (3312) -->
     <div id="adminApp" class="hidden">
         <h1>📊 Dashboard de Administración</h1>
+
+        <!-- BARRA DE BÚSQUEDA Y FILTROS -->
+        <div class="card" style="border-left: 5px solid #e67e22;">
+            <h3>🔍 Filtros y Búsqueda</h3>
+            <input type="text" id="adminSearch" placeholder="Buscar por número de guía o repartidor..." oninput="filterAndRenderAdmin()">
+        </div>
+
         <div id="adminDashboardContent">
             <div class="card">Cargando reportes detallados...</div>
         </div>
@@ -106,6 +112,8 @@
         const db = getFirestore(initializeApp(firebaseConfig));
 
         let localBatch = [];
+        let html5QrCode = null;
+        let globalSnapshotDocs = [];
 
         window.checkPassword = function() {
             const pass = document.getElementById('accessPassword').value;
@@ -127,6 +135,7 @@
             document.getElementById('manualPackageId').value = '';
             document.getElementById('assignedWorker').value = '';
             document.getElementById('accessPassword').value = '';
+            document.getElementById('adminSearch').value = '';
             document.getElementById('workerApp').classList.add('hidden');
             document.getElementById('adminApp').classList.add('hidden');
             document.getElementById('loginScreen').classList.remove('hidden');
@@ -138,31 +147,33 @@
             document.getElementById('btnStartCam').style.display = 'none';
             document.getElementById('btnStopCam').style.display = 'block';
 
-            Quagga.init({
-                inputStream: {
-                    name: "Live",
-                    type: "LiveStream",
-                    target: document.querySelector('#interactive'),
-                    constraints: { facingMode: "environment" }
+            html5QrCode = new Html5Qrcode("interactive");
+            html5QrCode.start(
+                { facingMode: "environment" },
+                {
+                    fps: 10,
+                    qrbox: { width: 250, height: 250 }
                 },
-                decoder: {
-                    readers: ["code_128_reader", "ean_reader", "ean_8_reader", "code_39_reader"]
-                }
-            }, function(err) {
-                if (err) { alert("Error al iniciar cámara"); stopScanner(); return; }
-                Quagga.start();
-            });
-
-            Quagga.onDetected((result) => {
-                const code = result.codeResult.code;
-                if (navigator.vibrate) navigator.vibrate(100);
-                addToListFromCamera(code);
+                (decodedText) => {
+                    if (navigator.vibrate) navigator.vibrate(100);
+                    addToListFromCamera(decodedText);
+                    stopScanner();
+                },
+                (errorMessage) => {}
+            ).catch((err) => {
+                alert("No se pudo iniciar la cámara: " + err);
                 stopScanner();
             });
         };
         
         window.stopScanner = function() {
-            try { Quagga.stop(); } catch(e){}
+            if (html5QrCode) {
+                html5QrCode.stop().then(() => {
+                    html5QrCode.clear();
+                }).catch(err => {
+                    console.error("Error al detener la cámara", err);
+                });
+            }
             document.getElementById('interactive').style.display = 'none';
             document.getElementById('btnStartCam').style.display = 'block';
             document.getElementById('btnStopCam').style.display = 'none';
@@ -185,6 +196,13 @@
             renderBatch();
         };
 
+        window.handleManualKeypress = function(event) {
+            if(event.key === 'Enter') {
+                event.preventDefault();
+                window.addManualToList();
+            }
+        };
+
         window.removeFromBatch = function(index) {
             localBatch.splice(index, 1);
             renderBatch();
@@ -205,7 +223,17 @@
         window.saveBatchToCloud = async function() {
             const worker = document.getElementById('assignedWorker').value.trim();
             if(!worker) { alert("Ingresa el nombre del repartidor."); return; }
-            if(localBatch.length === 0) { alert("El lote está vacío."); return; }
+
+            const manualVal = document.getElementById('manualPackageId').value.trim();
+            if(manualVal) {
+                if(!localBatch.includes(manualVal)) {
+                    localBatch.push(manualVal);
+                }
+                document.getElementById('manualPackageId').value = '';
+                renderBatch();
+            }
+
+            if(localBatch.length === 0) { alert("El lote está vacío. Ingresa o escanea un paquete."); return; }
 
             try {
                 for(let code of localBatch) {
@@ -218,36 +246,50 @@
                 alert("¡Lote de " + localBatch.length + " paquetes guardado con éxito!");
                 localBatch = [];
                 renderBatch();
-                document.getElementById('manualPackageId').value = '';
             } catch (e) {
                 alert("Error al guardar: " + e.message);
             }
         };
 
-        // ADMIN Y DASHBOARD DETALLADO EN TIEMPO REAL
+        // ADMIN Y DASHBOARD EN TIEMPO REAL CON FILTRO DE BÚSQUEDA
         const q = query(collection(db, "packages"), orderBy("timestamp", "desc"));
         onSnapshot(q, (snapshot) => {
+            globalSnapshotDocs = [];
+            snapshot.forEach((doc) => {
+                globalSnapshotDocs.push(doc.data());
+            });
+            filterAndRenderAdmin();
+        });
+
+        window.filterAndRenderAdmin = function() {
+            const searchText = document.getElementById('adminSearch').value.toLowerCase().trim();
             const workerData = {};
             let countToday = 0;
             const hoy = new Date().toDateString();
 
-            snapshot.forEach((doc) => {
-                const p = doc.data();
+            globalSnapshotDocs.forEach((p) => {
                 const worker = p.assignedWorker || "Sin Nombre";
-                
+                const trackingId = String(p.trackingId || "").toLowerCase();
+                const workerLower = worker.toLowerCase();
+
+                // Verificar si coincide con la búsqueda
+                const matchesSearch = searchText === "" || trackingId.includes(searchText) || workerLower.includes(searchText);
+
                 if(p.timestamp) {
                     const fechaDoc = p.timestamp.toDate ? p.timestamp.toDate() : new Date(p.timestamp);
                     if(fechaDoc.toDateString() === hoy) {
                         countToday++;
                     }
                     
-                    if(!workerData[worker]) {
-                        workerData[worker] = [];
+                    if(matchesSearch) {
+                        if(!workerData[worker]) {
+                            workerData[worker] = [];
+                        }
+                        workerData[worker].push({
+                            trackingId: p.trackingId,
+                            time: fechaDoc.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+                        });
                     }
-                    workerData[worker].push({
-                        trackingId: p.trackingId,
-                        time: fechaDoc.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
-                    });
                 }
             });
 
@@ -256,7 +298,7 @@
             let html = "";
             for(let worker in workerData) {
                 html += `<div class="card worker-section">
-                    <h3>👤 ${worker} <span style="font-size:13px; color:#666; font-weight:normal;">(${workerData[worker].length} paquetes totales)</span></h3>
+                    <h3>👤 ${worker} <span style="font-size:13px; color:#666; font-weight:normal;">(${workerData[worker].length} paquetes mostrados)</span></h3>
                     <table>
                         <tr><th>Nº de Guía / Paquete</th><th>Hora de Registro</th></tr>
                         ${workerData[worker].map(item => `
@@ -268,8 +310,8 @@
                     </table>
                 </div>`;
             }
-            document.getElementById('adminDashboardContent').innerHTML = html || "<div class='card'>No hay actividad registrada aún.</div>";
-        });
+            document.getElementById('adminDashboardContent').innerHTML = html || "<div class='card'>No se encontraron resultados para la búsqueda.</div>";
+        };
     </script>
 </body>
 </html>
